@@ -501,10 +501,29 @@ async function finalizarSolicitud(id) {
 // PANEL ADMINISTRADOR
 // =====================================================
 
+function formatearFechaHora(fecha) {
+  if (!fecha) return "";
+
+  const f = new Date(fecha);
+
+  if (isNaN(f.getTime())) {
+    return fecha;
+  }
+
+  return f.toLocaleString("es-CR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  });
+}
+
 async function renderPanelAdmin() {
   const datos = await api("obtenerDatosIniciales");
 
-  const usuarios = []; // Luego lo ampliamos desde backend
+  const usuarios = datos.usuarios || [];
   const colaboradores = datos.colaboradores || [];
   const solicitudes = datos.solicitudes || [];
 
@@ -523,6 +542,11 @@ async function renderPanelAdmin() {
 
     <div class="grid">
       <div class="card">
+        <h2>${usuarios.length}</h2>
+        <p>Usuarios</p>
+      </div>
+
+      <div class="card">
         <h2>${colaboradores.length}</h2>
         <p>Colaboradores</p>
       </div>
@@ -535,6 +559,11 @@ async function renderPanelAdmin() {
       <div class="card">
         <h2>${pendientes.length}</h2>
         <p>Pendientes</p>
+      </div>
+
+      <div class="card">
+        <h2>${aceptadas.length}</h2>
+        <p>Aceptadas</p>
       </div>
 
       <div class="card">
@@ -555,16 +584,32 @@ async function renderPanelAdmin() {
 
       ${solicitudes.length === 0 ? "<p>No hay solicitudes registradas.</p>" : ""}
 
-      ${solicitudes.reverse().map(s => `
+      ${solicitudes.slice().reverse().map(s => `
         <div class="card">
           <h3>${s.Servicio} · #${s.ID}</h3>
-          <p><b>Fecha:</b> ${s.Fecha}</p>
+          <p><b>Fecha y hora:</b> ${formatearFechaHora(s.Fecha)}</p>
           <p><b>Cliente:</b> ${s.Cliente}</p>
           <p><b>Teléfono cliente:</b> ${s["Teléfono cliente"]}</p>
           <p><b>Detalle:</b> ${s.Detalle}</p>
           <p><b>Estado:</b> ${badge(s.Estado)}</p>
           <p><b>Colaborador:</b> ${s.Colaborador || "Sin asignar"}</p>
           <p><b>Teléfono colaborador:</b> ${s["Teléfono colaborador"] || "Sin asignar"}</p>
+        </div>
+      `).join("")}
+    </div>
+
+    <div class="card">
+      <h2>👤 Usuarios registrados</h2>
+
+      ${usuarios.length === 0 ? "<p>No hay usuarios registrados.</p>" : ""}
+
+      ${usuarios.map(u => `
+        <div class="card">
+          <h3>${u.Nombre} ${u["Primer apellido"]} ${u["Segundo apellido"]}</h3>
+          <p><b>Usuario:</b> ${u.Usuario}</p>
+          <p><b>Teléfono:</b> ${u["Teléfono"]}</p>
+          <p><b>Fecha:</b> ${formatearFechaHora(u.Fecha)}</p>
+          <p><b>Push Token:</b> ${u["Push Token"] ? "Sí" : "No"}</p>
         </div>
       `).join("")}
     </div>
@@ -581,6 +626,7 @@ async function renderPanelAdmin() {
           <p><b>Servicio:</b> ${c.Servicio}</p>
           <p><b>Estado:</b> ${badge(c.Estado)}</p>
           <p><b>Teléfono:</b> ${c["Teléfono"]}</p>
+          <p><b>Fecha:</b> ${formatearFechaHora(c.Fecha)}</p>
           <p><b>Push Token:</b> ${c["Push Token"] ? "Sí" : "No"}</p>
         </div>
       `).join("")}

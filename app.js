@@ -378,3 +378,122 @@ async function crearSolicitud(servicio) {
   alert("Solicitud enviada correctamente.");
   renderPanelUsuario();
 }
+async function renderPanelColaborador() {
+  const datos = await api("obtenerDatosIniciales");
+  const c = sesion.persona;
+
+  const pendientes = datos.solicitudes.filter(
+    s => s.Servicio === c.Servicio && s.Estado === "Pendiente"
+  );
+
+  const mias = datos.solicitudes.filter(
+    s => s["Colaborador ID"] === c.ID
+  );
+
+  document.getElementById("app").innerHTML = `
+    <div class="topbar card">
+      <div>
+        <h2>${c.Servicio} · ${c.Nombre}</h2>
+        <p>Estado actual: ${badge(c.Estado)}</p>
+      </div>
+      <button class="small-btn" onclick="cerrarSesion()">Salir</button>
+    </div>
+
+    <div class="card">
+      <h2>🚦 Cambiar estado</h2>
+      <select id="nuevoEstado">
+        <option>Disponible</option>
+        <option>Ocupado</option>
+        <option>Fuera de servicio</option>
+      </select>
+      <button onclick="cambiarEstadoColaborador()">Actualizar estado</button>
+    </div>
+
+    <div class="card">
+      <h2>🔔 Solicitudes pendientes</h2>
+      ${pendientes.length === 0 ? "<p>No hay solicitudes pendientes.</p>" : ""}
+      ${pendientes.reverse().map(s => `
+        <div class="card">
+          <h3>${s.Servicio} · #${s.ID}</h3>
+          <p><b>Cliente:</b> ${s.Cliente}</p>
+          <p><b>Detalle:</b> ${s.Detalle}</p>
+          <button onclick="aceptarSolicitud('${s.ID}')">✅ Aceptar solicitud</button>
+        </div>
+      `).join("")}
+    </div>
+
+    <div class="card">
+      <h2>📌 Mis servicios</h2>
+      ${mias.length === 0 ? "<p>No tiene servicios aceptados.</p>" : ""}
+      ${mias.reverse().map(s => `
+        <div class="card">
+          <h3>${s.Servicio} · #${s.ID}</h3>
+          <p><b>Cliente:</b> ${s.Cliente}</p>
+          <p><b>Estado:</b> ${badge(s.Estado)}</p>
+          <p><b>Detalle:</b> ${s.Detalle}</p>
+
+          <a href="${whatsapp(s["Teléfono cliente"], "Hola, soy " + s.Colaborador + ". Acepté su solicitud #" + s.ID)}" target="_blank">
+            <button>💬 Chatear con cliente</button>
+          </a>
+
+          ${s.Estado !== "Finalizado"
+            ? `<button onclick="finalizarSolicitud('${s.ID}')">🏁 Finalizar solicitud</button>`
+            : ""}
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+async function cambiarEstadoColaborador() {
+  const estado = document.getElementById("nuevoEstado").value;
+  const c = sesion.persona;
+
+  const r = await api("cambiarEstadoColaborador", {
+    colaboradorId: c.ID,
+    estado
+  });
+
+  if (!r.ok) {
+    alert("No se pudo actualizar el estado.");
+    return;
+  }
+
+  c.Estado = estado;
+  guardarSesion("Colaborador", c);
+  renderPanelColaborador();
+}
+
+async function aceptarSolicitud(id) {
+  const c = sesion.persona;
+  const nombre = `${c.Nombre} ${c["Primer apellido"]} ${c["Segundo apellido"]}`;
+
+  const r = await api("aceptarSolicitud", {
+    solicitudId: id,
+    colaboradorId: c.ID,
+    colaboradorNombre: nombre,
+    telefonoColaborador: c["Teléfono"]
+  });
+
+  if (!r.ok) {
+    alert(r.mensaje || "No se pudo aceptar.");
+    return;
+  }
+
+  alert("Solicitud aceptada.");
+  renderPanelColaborador();
+}
+
+async function finalizarSolicitud(id) {
+  const r = await api("finalizarSolicitud", {
+    solicitudId: id
+  });
+
+  if (!r.ok) {
+    alert("No se pudo finalizar.");
+    return;
+  }
+
+  alert("Solicitud finalizada.");
+  renderPanelColaborador();
+}

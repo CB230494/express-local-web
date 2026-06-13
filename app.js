@@ -498,6 +498,96 @@ async function finalizarSolicitud(id) {
   renderPanelColaborador();
 }
 // =====================================================
+// PANEL ADMINISTRADOR
+// =====================================================
+
+async function renderPanelAdmin() {
+  const datos = await api("obtenerDatosIniciales");
+
+  const usuarios = []; // Luego lo ampliamos desde backend
+  const colaboradores = datos.colaboradores || [];
+  const solicitudes = datos.solicitudes || [];
+
+  const pendientes = solicitudes.filter(s => s.Estado === "Pendiente");
+  const aceptadas = solicitudes.filter(s => s.Estado === "Aceptado");
+  const finalizadas = solicitudes.filter(s => s.Estado === "Finalizado");
+
+  document.getElementById("app").innerHTML = `
+    <div class="topbar card">
+      <div>
+        <h2>🛡️ Panel Administrador</h2>
+        <p>Control general de Express Local.</p>
+      </div>
+      <button class="small-btn" onclick="cerrarSesion()">Salir</button>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>${colaboradores.length}</h2>
+        <p>Colaboradores</p>
+      </div>
+
+      <div class="card">
+        <h2>${solicitudes.length}</h2>
+        <p>Solicitudes totales</p>
+      </div>
+
+      <div class="card">
+        <h2>${pendientes.length}</h2>
+        <p>Pendientes</p>
+      </div>
+
+      <div class="card">
+        <h2>${finalizadas.length}</h2>
+        <p>Finalizadas</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📊 Estado de solicitudes</h2>
+      <p><b>Pendientes:</b> ${pendientes.length}</p>
+      <p><b>Aceptadas:</b> ${aceptadas.length}</p>
+      <p><b>Finalizadas:</b> ${finalizadas.length}</p>
+    </div>
+
+    <div class="card">
+      <h2>📋 Solicitudes registradas</h2>
+
+      ${solicitudes.length === 0 ? "<p>No hay solicitudes registradas.</p>" : ""}
+
+      ${solicitudes.reverse().map(s => `
+        <div class="card">
+          <h3>${s.Servicio} · #${s.ID}</h3>
+          <p><b>Fecha:</b> ${s.Fecha}</p>
+          <p><b>Cliente:</b> ${s.Cliente}</p>
+          <p><b>Teléfono cliente:</b> ${s["Teléfono cliente"]}</p>
+          <p><b>Detalle:</b> ${s.Detalle}</p>
+          <p><b>Estado:</b> ${badge(s.Estado)}</p>
+          <p><b>Colaborador:</b> ${s.Colaborador || "Sin asignar"}</p>
+          <p><b>Teléfono colaborador:</b> ${s["Teléfono colaborador"] || "Sin asignar"}</p>
+        </div>
+      `).join("")}
+    </div>
+
+    <div class="card">
+      <h2>🛠️ Colaboradores registrados</h2>
+
+      ${colaboradores.length === 0 ? "<p>No hay colaboradores registrados.</p>" : ""}
+
+      ${colaboradores.map(c => `
+        <div class="card">
+          <h3>${c.Nombre} ${c["Primer apellido"]} ${c["Segundo apellido"]}</h3>
+          <p><b>Usuario:</b> ${c.Usuario}</p>
+          <p><b>Servicio:</b> ${c.Servicio}</p>
+          <p><b>Estado:</b> ${badge(c.Estado)}</p>
+          <p><b>Teléfono:</b> ${c["Teléfono"]}</p>
+          <p><b>Push Token:</b> ${c["Push Token"] ? "Sí" : "No"}</p>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+// =====================================================
 // INICIO DE LA APP
 // =====================================================
 
@@ -511,6 +601,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (sesion.tipo === "Colaborador") {
     renderPanelColaborador();
+    return;
+  }
+
+  if (sesion.tipo === "Administrador") {
+    renderPanelAdmin();
     return;
   }
 

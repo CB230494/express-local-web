@@ -1,1 +1,9 @@
-
+{
+  "name": "Express Local",
+  "short_name": "Express Local",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fff7ed",
+  "theme_color": "#ff7a1a",
+  "icons": []
+}

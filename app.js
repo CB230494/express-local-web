@@ -1,9 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import {
-  getMessaging,
-  getToken,
-  onMessage
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging.js";
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCQfbLIlHZ18BNBqKAxIRY7HHd_QcQbpxg",
@@ -15,19 +11,16 @@ const firebaseConfig = {
 };
 
 const vapidKey = "BDAeUsGr4l__q54Crj0gZpmhIrGex_Yr3bBZljhB1JB7zFvFIR-V0IzwRCZNo3OifsvRNCF0lWyuW9gY-9AK_c8";
-
 const firebaseApp = initializeApp(firebaseConfig);
 const messaging = getMessaging(firebaseApp);
 
 const API_URL = "https://script.google.com/macros/s/AKfycbz7NTgUWeC9-0FydoQzW1sCYJqhru4bOydL7itqGzEIAnd3RDSfF2y5ZTkLBQN45iCh/exec";
 
-let sesion = {
-  tipo: null,
-  persona: null
-};
-
+let sesion = { tipo: null, persona: null };
 let refrescoActivo = null;
 let vistaActual = "login";
+let idsPendientesVistos = new Set();
+let idsUsuarioAceptadasVistas = new Set();
 
 async function api(accion, datos = {}) {
   const respuesta = await fetch(API_URL, {
@@ -35,40 +28,24 @@ async function api(accion, datos = {}) {
     cache: "no-store",
     body: JSON.stringify({ accion, ...datos })
   });
-
   return await respuesta.json();
 }
 
 function iniciarRefrescoAutomatico() {
-  if (refrescoActivo) {
-    clearInterval(refrescoActivo);
-  }
+  if (refrescoActivo) clearInterval(refrescoActivo);
 
   refrescoActivo = setInterval(() => {
     if (!sesion.tipo) return;
 
-    if (sesion.tipo === "Usuario" && vistaActual === "panelUsuario") {
-      renderPanelUsuario(true);
-      return;
-    }
-
-    if (sesion.tipo === "Colaborador" && vistaActual === "panelColaborador") {
-      renderPanelColaborador(true);
-      return;
-    }
-
-    if (sesion.tipo === "Administrador" && vistaActual === "panelAdmin") {
-      renderPanelAdmin(true);
-      return;
-    }
+    if (sesion.tipo === "Usuario" && vistaActual === "panelUsuario") renderPanelUsuario(true);
+    if (sesion.tipo === "Colaborador" && vistaActual === "panelColaborador") renderPanelColaborador(true);
+    if (sesion.tipo === "Administrador" && vistaActual === "panelAdmin") renderPanelAdmin(true);
   }, 3000);
 }
 
 function detenerRefrescoAutomatico() {
-  if (refrescoActivo) {
-    clearInterval(refrescoActivo);
-    refrescoActivo = null;
-  }
+  if (refrescoActivo) clearInterval(refrescoActivo);
+  refrescoActivo = null;
 }
 
 function guardarSesion(tipo, persona) {
@@ -86,42 +63,26 @@ function cerrarSesion() {
   detenerRefrescoAutomatico();
   localStorage.removeItem("express_sesion");
   sesion = { tipo: null, persona: null };
+  idsPendientesVistos = new Set();
+  idsUsuarioAceptadasVistas = new Set();
   renderLogin();
 }
 
 const SERVICIOS_UI = {
-  Taxi: {
-    icono: "🚕",
-    color: "linear-gradient(135deg,#facc15,#f97316)",
-    texto: "Viajes locales y traslados rápidos."
-  },
-  Express: {
-    icono: "🛵",
-    color: "linear-gradient(135deg,#ef4444,#fb7185)",
-    texto: "Mandados, compras y entregas rápidas."
-  },
-  Carga: {
-    icono: "📦",
-    color: "linear-gradient(135deg,#2563eb,#06b6d4)",
-    texto: "Paquetes, compras grandes o artículos medianos."
-  },
-  Camión: {
-    icono: "🚚",
-    color: "linear-gradient(135deg,#16a34a,#22c55e)",
-    texto: "Mudanzas, materiales y carga pesada."
-  }
+  Taxi: { icono: "🚕", color: "linear-gradient(135deg,#facc15,#f97316)", texto: "Viajes locales y traslados rápidos." },
+  Express: { icono: "🛵", color: "linear-gradient(135deg,#ef4444,#fb7185)", texto: "Mandados, compras y entregas rápidas." },
+  Carga: { icono: "📦", color: "linear-gradient(135deg,#2563eb,#06b6d4)", texto: "Paquetes, compras grandes o artículos medianos." },
+  Camión: { icono: "🚚", color: "linear-gradient(135deg,#16a34a,#22c55e)", texto: "Mudanzas, materiales y carga pesada." }
 };
 
 function badge(estado) {
   const e = String(estado || "").toLowerCase();
-
   if (e === "pendiente") return `<span class="badge pendiente">⏳ Pendiente</span>`;
   if (e === "aceptado") return `<span class="badge aceptado">✅ Aceptado</span>`;
   if (e === "finalizado") return `<span class="badge finalizado">🏁 Finalizado</span>`;
   if (e === "disponible") return `<span class="badge disponible">🟢 Disponible</span>`;
   if (e === "ocupado") return `<span class="badge ocupado">🔴 Ocupado</span>`;
   if (e === "fuera de servicio") return `<span class="badge fuera">⚫ Fuera de servicio</span>`;
-
   return `<span class="badge fuera">${estado || ""}</span>`;
 }
 
@@ -134,10 +95,7 @@ function whatsapp(numero, mensaje) {
 function formatearFechaHora(fecha) {
   if (!fecha) return "";
   const f = new Date(fecha);
-
-  if (isNaN(f.getTime())) {
-    return fecha;
-  }
+  if (isNaN(f.getTime())) return fecha;
 
   return f.toLocaleString("es-CR", {
     day: "2-digit",
@@ -147,6 +105,15 @@ function formatearFechaHora(fecha) {
     minute: "2-digit",
     hour12: true
   });
+}
+
+function notificacionLocal(titulo, cuerpo) {
+  if (Notification.permission === "granted") {
+    new Notification(titulo, {
+      body: cuerpo,
+      requireInteraction: true
+    });
+  }
 }
 
 function hero() {
@@ -198,14 +165,12 @@ function renderLogin() {
         <input id="colApellido1" placeholder="Primer apellido">
         <input id="colApellido2" placeholder="Segundo apellido">
         <input id="colTelefono" placeholder="Teléfono">
-
         <select id="colServicio">
           <option>Taxi</option>
           <option>Express</option>
           <option>Carga</option>
           <option>Camión</option>
         </select>
-
         <input id="colCodigo" type="password" placeholder="Código autorizado">
         <input id="colUsuario" placeholder="Usuario">
         <input id="colClave" type="password" placeholder="Clave personal">
@@ -223,15 +188,12 @@ function renderLogin() {
 }
 
 async function loginUsuario() {
-  const usuario = document.getElementById("loginUsuario").value;
-  const clave = document.getElementById("loginClave").value;
+  const r = await api("loginUsuario", {
+    usuario: document.getElementById("loginUsuario").value,
+    clave: document.getElementById("loginClave").value
+  });
 
-  const r = await api("loginUsuario", { usuario, clave });
-
-  if (!r.ok) {
-    alert(r.mensaje);
-    return;
-  }
+  if (!r.ok) return alert(r.mensaje);
 
   guardarSesion("Usuario", r.persona);
   iniciarRefrescoAutomatico();
@@ -239,15 +201,12 @@ async function loginUsuario() {
 }
 
 async function loginColaborador() {
-  const usuario = document.getElementById("loginColUsuario").value;
-  const clave = document.getElementById("loginColClave").value;
+  const r = await api("loginColaborador", {
+    usuario: document.getElementById("loginColUsuario").value,
+    clave: document.getElementById("loginColClave").value
+  });
 
-  const r = await api("loginColaborador", { usuario, clave });
-
-  if (!r.ok) {
-    alert(r.mensaje);
-    return;
-  }
+  if (!r.ok) return alert(r.mensaje);
 
   guardarSesion("Colaborador", r.persona);
   iniciarRefrescoAutomatico();
@@ -255,17 +214,14 @@ async function loginColaborador() {
 }
 
 async function loginAdmin() {
-  const usuario = document.getElementById("adminUsuario").value;
-  const clave = document.getElementById("adminClave").value;
+  const r = await api("loginAdmin", {
+    usuario: document.getElementById("adminUsuario").value,
+    clave: document.getElementById("adminClave").value
+  });
 
-  const r = await api("loginAdmin", { usuario, clave });
+  if (!r.ok) return alert(r.mensaje);
 
-  if (!r.ok) {
-    alert(r.mensaje);
-    return;
-  }
-
-  guardarSesion("Administrador", { usuario });
+  guardarSesion("Administrador", { usuario: document.getElementById("adminUsuario").value });
   iniciarRefrescoAutomatico();
   renderPanelAdmin();
 }
@@ -280,10 +236,7 @@ async function registrarUsuario() {
     clave: document.getElementById("regClave").value
   });
 
-  if (!r.ok) {
-    alert(r.mensaje);
-    return;
-  }
+  if (!r.ok) return alert(r.mensaje);
 
   alert("Usuario registrado correctamente.");
   guardarSesion("Usuario", r.persona);
@@ -303,10 +256,7 @@ async function registrarColaborador() {
     clave: document.getElementById("colClave").value
   });
 
-  if (!r.ok) {
-    alert(r.mensaje);
-    return;
-  }
+  if (!r.ok) return alert(r.mensaje);
 
   alert("Colaborador registrado correctamente.");
   guardarSesion("Colaborador", r.persona);
@@ -316,17 +266,10 @@ async function registrarColaborador() {
 
 async function activarNotificaciones() {
   try {
-    if (!sesion.tipo || !sesion.persona) {
-      alert("Debe iniciar sesión primero.");
-      return;
-    }
+    if (!sesion.tipo || !sesion.persona) return alert("Debe iniciar sesión primero.");
 
     const permiso = await Notification.requestPermission();
-
-    if (permiso !== "granted") {
-      alert("Permiso de notificaciones denegado.");
-      return;
-    }
+    if (permiso !== "granted") return alert("Permiso de notificaciones denegado.");
 
     const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js");
     await navigator.serviceWorker.ready;
@@ -336,10 +279,7 @@ async function activarNotificaciones() {
       serviceWorkerRegistration: registration
     });
 
-    if (!token) {
-      alert("No se pudo generar token de notificaciones.");
-      return;
-    }
+    if (!token) return alert("No se pudo generar token de notificaciones.");
 
     const r = await api("guardarPushToken", {
       tipo: sesion.tipo,
@@ -347,10 +287,7 @@ async function activarNotificaciones() {
       token
     });
 
-    if (!r.ok) {
-      alert("No se pudo guardar el token.");
-      return;
-    }
+    if (!r.ok) return alert("No se pudo guardar el token.");
 
     sesion.persona["Push Token"] = token;
     guardarSesion(sesion.tipo, sesion.persona);
@@ -365,12 +302,7 @@ async function activarNotificaciones() {
 onMessage(messaging, (payload) => {
   const titulo = payload.notification?.title || "Express Local";
   const cuerpo = payload.notification?.body || "Nueva notificación";
-
-  if (Notification.permission === "granted") {
-    new Notification(titulo, { body: cuerpo });
-  }
-
-  alert(`${titulo}\n${cuerpo}`);
+  notificacionLocal(titulo, cuerpo);
 });
 
 async function renderPanelUsuario(silencioso = false) {
@@ -382,6 +314,27 @@ async function renderPanelUsuario(silencioso = false) {
   const misSolicitudes = (datos.solicitudes || []).filter(
     s => s["Cliente ID"] === usuario.ID
   );
+
+  const aceptadasActuales = misSolicitudes.filter(s => s.Estado === "Aceptado" || s.Estado === "Finalizado");
+
+  if (silencioso) {
+    aceptadasActuales.forEach(s => {
+      const llave = `${s.ID}-${s.Estado}`;
+      if (!idsUsuarioAceptadasVistas.has(llave)) {
+        idsUsuarioAceptadasVistas.add(llave);
+
+        if (s.Estado === "Aceptado") {
+          notificacionLocal("✅ Solicitud aceptada", `${s.Colaborador || "Un colaborador"} aceptó su solicitud ${s.Servicio}.`);
+        }
+
+        if (s.Estado === "Finalizado") {
+          notificacionLocal("🏁 Servicio finalizado", `Su servicio ${s.Servicio} fue finalizado.`);
+        }
+      }
+    });
+  } else {
+    aceptadasActuales.forEach(s => idsUsuarioAceptadasVistas.add(`${s.ID}-${s.Estado}`));
+  }
 
   document.getElementById("app").innerHTML = `
     <div class="topbar card">
@@ -448,10 +401,7 @@ async function crearSolicitud(servicio) {
   const usuario = sesion.persona;
   const detalle = document.getElementById("detalleSolicitud").value;
 
-  if (!detalle.trim()) {
-    alert("Debe escribir el detalle de la solicitud.");
-    return;
-  }
+  if (!detalle.trim()) return alert("Debe escribir el detalle de la solicitud.");
 
   const cliente = `${usuario.Nombre} ${usuario["Primer apellido"]} ${usuario["Segundo apellido"]}`;
 
@@ -463,10 +413,7 @@ async function crearSolicitud(servicio) {
     detalle
   });
 
-  if (!r.ok) {
-    alert("No se pudo crear la solicitud.");
-    return;
-  }
+  if (!r.ok) return alert("No se pudo crear la solicitud.");
 
   alert("Solicitud enviada correctamente.");
   renderPanelUsuario();
@@ -481,6 +428,17 @@ async function renderPanelColaborador(silencioso = false) {
   const pendientes = (datos.solicitudes || []).filter(
     s => s.Servicio === c.Servicio && s.Estado === "Pendiente"
   );
+
+  if (silencioso) {
+    pendientes.forEach(s => {
+      if (!idsPendientesVistos.has(s.ID)) {
+        idsPendientesVistos.add(s.ID);
+        notificacionLocal("🚨 Nueva solicitud " + s.Servicio, `${s.Cliente}: ${s.Detalle}`);
+      }
+    });
+  } else {
+    pendientes.forEach(s => idsPendientesVistos.add(s.ID));
+  }
 
   const mias = (datos.solicitudes || []).filter(
     s => s["Colaborador ID"] === c.ID
@@ -557,10 +515,7 @@ async function cambiarEstadoColaborador() {
     estado
   });
 
-  if (!r.ok) {
-    alert("No se pudo actualizar el estado.");
-    return;
-  }
+  if (!r.ok) return alert("No se pudo actualizar el estado.");
 
   c.Estado = estado;
   guardarSesion("Colaborador", c);
@@ -578,24 +533,15 @@ async function aceptarSolicitud(id) {
     telefonoColaborador: c["Teléfono"]
   });
 
-  if (!r.ok) {
-    alert(r.mensaje || "No se pudo aceptar.");
-    return;
-  }
+  if (!r.ok) return alert(r.mensaje || "No se pudo aceptar.");
 
   alert("Solicitud aceptada.");
   renderPanelColaborador();
 }
 
 async function finalizarSolicitud(id) {
-  const r = await api("finalizarSolicitud", {
-    solicitudId: id
-  });
-
-  if (!r.ok) {
-    alert("No se pudo finalizar.");
-    return;
-  }
+  const r = await api("finalizarSolicitud", { solicitudId: id });
+  if (!r.ok) return alert("No se pudo finalizar.");
 
   alert("Solicitud finalizada.");
   renderPanelColaborador();
@@ -633,55 +579,15 @@ async function renderPanelAdmin(silencioso = false) {
     </div>
 
     <div class="card">
-      <h2>📊 Estado de solicitudes</h2>
-      <p><b>Pendientes:</b> ${pendientes.length}</p>
-      <p><b>Aceptadas:</b> ${aceptadas.length}</p>
-      <p><b>Finalizadas:</b> ${finalizadas.length}</p>
-    </div>
-
-    <div class="card">
       <h2>📋 Solicitudes registradas</h2>
-      ${solicitudes.length === 0 ? "<p>No hay solicitudes registradas.</p>" : ""}
       ${solicitudes.slice().reverse().map(s => `
         <div class="card">
           <h3>${s.Servicio} · #${s.ID}</h3>
-          <p><b>Fecha y hora:</b> ${formatearFechaHora(s.Fecha)}</p>
+          <p><b>Fecha:</b> ${formatearFechaHora(s.Fecha)}</p>
           <p><b>Cliente:</b> ${s.Cliente}</p>
-          <p><b>Teléfono cliente:</b> ${s["Teléfono cliente"]}</p>
           <p><b>Detalle:</b> ${s.Detalle}</p>
           <p><b>Estado:</b> ${badge(s.Estado)}</p>
           <p><b>Colaborador:</b> ${s.Colaborador || "Sin asignar"}</p>
-          <p><b>Teléfono colaborador:</b> ${s["Teléfono colaborador"] || "Sin asignar"}</p>
-        </div>
-      `).join("")}
-    </div>
-
-    <div class="card">
-      <h2>👤 Usuarios registrados</h2>
-      ${usuarios.length === 0 ? "<p>No hay usuarios registrados.</p>" : ""}
-      ${usuarios.map(u => `
-        <div class="card">
-          <h3>${u.Nombre} ${u["Primer apellido"]} ${u["Segundo apellido"]}</h3>
-          <p><b>Usuario:</b> ${u.Usuario}</p>
-          <p><b>Teléfono:</b> ${u["Teléfono"]}</p>
-          <p><b>Fecha:</b> ${formatearFechaHora(u.Fecha)}</p>
-          <p><b>Push Token:</b> ${u["Push Token"] ? "Sí" : "No"}</p>
-        </div>
-      `).join("")}
-    </div>
-
-    <div class="card">
-      <h2>🛠️ Colaboradores registrados</h2>
-      ${colaboradores.length === 0 ? "<p>No hay colaboradores registrados.</p>" : ""}
-      ${colaboradores.map(c => `
-        <div class="card">
-          <h3>${c.Nombre} ${c["Primer apellido"]} ${c["Segundo apellido"]}</h3>
-          <p><b>Usuario:</b> ${c.Usuario}</p>
-          <p><b>Servicio:</b> ${c.Servicio}</p>
-          <p><b>Estado:</b> ${badge(c.Estado)}</p>
-          <p><b>Teléfono:</b> ${c["Teléfono"]}</p>
-          <p><b>Fecha:</b> ${formatearFechaHora(c.Fecha)}</p>
-          <p><b>Push Token:</b> ${c["Push Token"] ? "Sí" : "No"}</p>
         </div>
       `).join("")}
     </div>

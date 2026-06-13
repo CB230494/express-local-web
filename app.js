@@ -497,3 +497,32 @@ async function finalizarSolicitud(id) {
   alert("Solicitud finalizada.");
   renderPanelColaborador();
 }
+// =====================================================
+// INICIO DE LA APP
+// =====================================================
+
+document.addEventListener("DOMContentLoaded", () => {
+  cargarSesion();
+
+  if (!sesion.tipo) {
+    renderLogin();
+    return;
+  }
+
+  if (sesion.tipo === "Usuario") {
+    renderPanelUsuario();
+    return;
+  }
+
+  if (sesion.tipo === "Colaborador") {
+    renderPanelColaborador();
+    return;
+  }
+
+  if (sesion.tipo === "Administrador") {
+    renderPanelAdmin();
+    return;
+  }
+
+  renderLogin();
+});

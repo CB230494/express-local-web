@@ -14,11 +14,11 @@ const firebaseConfig = {
   appId: "1:895952227571:web:53b7cbc65e2acc69993b86"
 };
 
-const vapidKey =
-  "BDAeUsGr4l__q54Crj0gZpmhIrGex_Yr3bBZljhB1JB7zFvFIR-V0IzwRCZNo3OifsvRNCF0lWyuW9gY-9AK_c8";
+const vapidKey = "BDAeUsGr4l__q54Crj0gZpmhIrGex_Yr3bBZljhB1JB7zFvFIR-V0IzwRCZNo3OifsvRNCF0lWyuW9gY-9AK_c8";
 
 const firebaseApp = initializeApp(firebaseConfig);
 const messaging = getMessaging(firebaseApp);
+
 const API_URL = "https://script.google.com/macros/s/AKfycbz7NTgUWeC9-0FydoQzW1sCYJqhru4bOydL7itqGzEIAnd3RDSfF2y5ZTkLBQN45iCh/exec";
 
 let sesion = {
@@ -29,10 +29,7 @@ let sesion = {
 async function api(accion, datos = {}) {
   const respuesta = await fetch(API_URL, {
     method: "POST",
-    body: JSON.stringify({
-      accion,
-      ...datos
-    })
+    body: JSON.stringify({ accion, ...datos })
   });
 
   return await respuesta.json();
@@ -41,27 +38,20 @@ async function api(accion, datos = {}) {
 function guardarSesion(tipo, persona) {
   sesion.tipo = tipo;
   sesion.persona = persona;
-
   localStorage.setItem("express_sesion", JSON.stringify(sesion));
 }
 
 function cargarSesion() {
   const guardada = localStorage.getItem("express_sesion");
-
-  if (guardada) {
-    sesion = JSON.parse(guardada);
-  }
+  if (guardada) sesion = JSON.parse(guardada);
 }
 
 function cerrarSesion() {
   localStorage.removeItem("express_sesion");
-  sesion = {
-    tipo: null,
-    persona: null
-  };
-
+  sesion = { tipo: null, persona: null };
   renderLogin();
 }
+
 const SERVICIOS_UI = {
   Taxi: {
     icono: "🚕",
@@ -95,13 +85,32 @@ function badge(estado) {
   if (e === "ocupado") return `<span class="badge ocupado">🔴 Ocupado</span>`;
   if (e === "fuera de servicio") return `<span class="badge fuera">⚫ Fuera de servicio</span>`;
 
-  return `<span class="badge fuera">${estado}</span>`;
+  return `<span class="badge fuera">${estado || ""}</span>`;
 }
 
 function whatsapp(numero, mensaje) {
   const limpio = String(numero || "").replace(/\D/g, "");
   const n = limpio.startsWith("506") ? limpio : "506" + limpio;
   return `https://wa.me/${n}?text=${encodeURIComponent(mensaje)}`;
+}
+
+function formatearFechaHora(fecha) {
+  if (!fecha) return "";
+
+  const f = new Date(fecha);
+
+  if (isNaN(f.getTime())) {
+    return fecha;
+  }
+
+  return f.toLocaleString("es-CR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  });
 }
 
 function hero() {
@@ -174,19 +183,12 @@ function renderLogin() {
     </div>
   `;
 }
-// =====================================================
-// LOGIN USUARIO
-// =====================================================
 
 async function loginUsuario() {
-
   const usuario = document.getElementById("loginUsuario").value;
   const clave = document.getElementById("loginClave").value;
 
-  const r = await api("loginUsuario", {
-    usuario,
-    clave
-  });
+  const r = await api("loginUsuario", { usuario, clave });
 
   if (!r.ok) {
     alert(r.mensaje);
@@ -194,24 +196,14 @@ async function loginUsuario() {
   }
 
   guardarSesion("Usuario", r.persona);
-
   renderPanelUsuario();
 }
 
-
-// =====================================================
-// LOGIN COLABORADOR
-// =====================================================
-
 async function loginColaborador() {
-
   const usuario = document.getElementById("loginColUsuario").value;
   const clave = document.getElementById("loginColClave").value;
 
-  const r = await api("loginColaborador", {
-    usuario,
-    clave
-  });
+  const r = await api("loginColaborador", { usuario, clave });
 
   if (!r.ok) {
     alert(r.mensaje);
@@ -219,53 +211,32 @@ async function loginColaborador() {
   }
 
   guardarSesion("Colaborador", r.persona);
-
   renderPanelColaborador();
 }
 
-
-// =====================================================
-// LOGIN ADMIN
-// =====================================================
-
 async function loginAdmin() {
-
   const usuario = document.getElementById("adminUsuario").value;
   const clave = document.getElementById("adminClave").value;
 
-  const r = await api("loginAdmin", {
-    usuario,
-    clave
-  });
+  const r = await api("loginAdmin", { usuario, clave });
 
   if (!r.ok) {
     alert(r.mensaje);
     return;
   }
 
-  guardarSesion("Administrador", {
-    usuario
-  });
-
+  guardarSesion("Administrador", { usuario });
   renderPanelAdmin();
 }
 
-
-// =====================================================
-// REGISTRAR USUARIO
-// =====================================================
-
 async function registrarUsuario() {
-
   const r = await api("registrarUsuario", {
-
     nombre: document.getElementById("regNombre").value,
     apellido1: document.getElementById("regApellido1").value,
     apellido2: document.getElementById("regApellido2").value,
     telefono: document.getElementById("regTelefono").value,
     usuario: document.getElementById("regUsuario").value,
     clave: document.getElementById("regClave").value
-
   });
 
   if (!r.ok) {
@@ -274,21 +245,12 @@ async function registrarUsuario() {
   }
 
   alert("Usuario registrado correctamente.");
-
   guardarSesion("Usuario", r.persona);
-
   renderPanelUsuario();
 }
 
-
-// =====================================================
-// REGISTRAR COLABORADOR
-// =====================================================
-
 async function registrarColaborador() {
-
   const r = await api("registrarColaborador", {
-
     nombre: document.getElementById("colNombre").value,
     apellido1: document.getElementById("colApellido1").value,
     apellido2: document.getElementById("colApellido2").value,
@@ -297,7 +259,6 @@ async function registrarColaborador() {
     codigo: document.getElementById("colCodigo").value,
     usuario: document.getElementById("colUsuario").value,
     clave: document.getElementById("colClave").value
-
   });
 
   if (!r.ok) {
@@ -306,16 +267,74 @@ async function registrarColaborador() {
   }
 
   alert("Colaborador registrado correctamente.");
-
   guardarSesion("Colaborador", r.persona);
-
   renderPanelColaborador();
 }
+
+async function activarNotificaciones() {
+  try {
+    if (!sesion.tipo || !sesion.persona) {
+      alert("Debe iniciar sesión primero.");
+      return;
+    }
+
+    const permiso = await Notification.requestPermission();
+
+    if (permiso !== "granted") {
+      alert("Permiso de notificaciones denegado.");
+      return;
+    }
+
+    const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js");
+    await navigator.serviceWorker.ready;
+
+    const token = await getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration: registration
+    });
+
+    if (!token) {
+      alert("No se pudo generar token de notificaciones.");
+      return;
+    }
+
+    const r = await api("guardarPushToken", {
+      tipo: sesion.tipo,
+      id: sesion.persona.ID,
+      token
+    });
+
+    if (!r.ok) {
+      alert("No se pudo guardar el token.");
+      return;
+    }
+
+    sesion.persona["Push Token"] = token;
+    guardarSesion(sesion.tipo, sesion.persona);
+
+    alert("Notificaciones activadas correctamente.");
+  } catch (error) {
+    console.error(error);
+    alert("Error activando notificaciones: " + error.message);
+  }
+}
+
+onMessage(messaging, (payload) => {
+  const titulo = payload.notification?.title || "Express Local";
+  const cuerpo = payload.notification?.body || "Nueva notificación";
+
+  if (Notification.permission === "granted") {
+    new Notification(titulo, { body: cuerpo });
+  }
+
+  alert(`${titulo}\n${cuerpo}`);
+});
+
 async function renderPanelUsuario() {
   const datos = await api("obtenerDatosIniciales");
   const usuario = sesion.persona;
 
-  const misSolicitudes = datos.solicitudes.filter(
+  const misSolicitudes = (datos.solicitudes || []).filter(
     s => s["Cliente ID"] === usuario.ID
   );
 
@@ -326,6 +345,12 @@ async function renderPanelUsuario() {
         <p>Seleccione el servicio que necesita.</p>
       </div>
       <button class="small-btn" onclick="cerrarSesion()">Salir</button>
+    </div>
+
+    <div class="card">
+      <h2>🔔 Notificaciones</h2>
+      <p>Active las notificaciones para recibir avisos aunque la app esté en segundo plano.</p>
+      <button onclick="activarNotificaciones()">Activar notificaciones</button>
     </div>
 
     <div class="grid">
@@ -341,10 +366,10 @@ async function renderPanelUsuario() {
     <div class="card">
       <h2>📋 Mis solicitudes</h2>
       ${misSolicitudes.length === 0 ? "<p>No tiene solicitudes registradas.</p>" : ""}
-      ${misSolicitudes.reverse().map(s => `
+      ${misSolicitudes.slice().reverse().map(s => `
         <div class="card">
           <h3>${s.Servicio} · #${s.ID}</h3>
-          <p><b>Fecha:</b> ${s.Fecha}</p>
+          <p><b>Fecha:</b> ${formatearFechaHora(s.Fecha)}</p>
           <p><b>Estado:</b> ${badge(s.Estado)}</p>
           <p><b>Detalle:</b> ${s.Detalle}</p>
           <p><b>Colaborador:</b> ${s.Colaborador || "Pendiente"}</p>
@@ -399,15 +424,16 @@ async function crearSolicitud(servicio) {
   alert("Solicitud enviada correctamente.");
   renderPanelUsuario();
 }
+
 async function renderPanelColaborador() {
   const datos = await api("obtenerDatosIniciales");
   const c = sesion.persona;
 
-  const pendientes = datos.solicitudes.filter(
+  const pendientes = (datos.solicitudes || []).filter(
     s => s.Servicio === c.Servicio && s.Estado === "Pendiente"
   );
 
-  const mias = datos.solicitudes.filter(
+  const mias = (datos.solicitudes || []).filter(
     s => s["Colaborador ID"] === c.ID
   );
 
@@ -421,11 +447,17 @@ async function renderPanelColaborador() {
     </div>
 
     <div class="card">
+      <h2>🔔 Notificaciones</h2>
+      <p>Active las notificaciones para recibir nuevas solicitudes.</p>
+      <button onclick="activarNotificaciones()">Activar notificaciones</button>
+    </div>
+
+    <div class="card">
       <h2>🚦 Cambiar estado</h2>
       <select id="nuevoEstado">
-        <option>Disponible</option>
-        <option>Ocupado</option>
-        <option>Fuera de servicio</option>
+        <option ${c.Estado === "Disponible" ? "selected" : ""}>Disponible</option>
+        <option ${c.Estado === "Ocupado" ? "selected" : ""}>Ocupado</option>
+        <option ${c.Estado === "Fuera de servicio" ? "selected" : ""}>Fuera de servicio</option>
       </select>
       <button onclick="cambiarEstadoColaborador()">Actualizar estado</button>
     </div>
@@ -433,10 +465,11 @@ async function renderPanelColaborador() {
     <div class="card">
       <h2>🔔 Solicitudes pendientes</h2>
       ${pendientes.length === 0 ? "<p>No hay solicitudes pendientes.</p>" : ""}
-      ${pendientes.reverse().map(s => `
+      ${pendientes.slice().reverse().map(s => `
         <div class="card">
           <h3>${s.Servicio} · #${s.ID}</h3>
           <p><b>Cliente:</b> ${s.Cliente}</p>
+          <p><b>Fecha:</b> ${formatearFechaHora(s.Fecha)}</p>
           <p><b>Detalle:</b> ${s.Detalle}</p>
           <button onclick="aceptarSolicitud('${s.ID}')">✅ Aceptar solicitud</button>
         </div>
@@ -446,7 +479,7 @@ async function renderPanelColaborador() {
     <div class="card">
       <h2>📌 Mis servicios</h2>
       ${mias.length === 0 ? "<p>No tiene servicios aceptados.</p>" : ""}
-      ${mias.reverse().map(s => `
+      ${mias.slice().reverse().map(s => `
         <div class="card">
           <h3>${s.Servicio} · #${s.ID}</h3>
           <p><b>Cliente:</b> ${s.Cliente}</p>
@@ -518,28 +551,6 @@ async function finalizarSolicitud(id) {
   alert("Solicitud finalizada.");
   renderPanelColaborador();
 }
-// =====================================================
-// PANEL ADMINISTRADOR
-// =====================================================
-
-function formatearFechaHora(fecha) {
-  if (!fecha) return "";
-
-  const f = new Date(fecha);
-
-  if (isNaN(f.getTime())) {
-    return fecha;
-  }
-
-  return f.toLocaleString("es-CR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true
-  });
-}
 
 async function renderPanelAdmin() {
   const datos = await api("obtenerDatosIniciales");
@@ -562,35 +573,12 @@ async function renderPanelAdmin() {
     </div>
 
     <div class="grid">
-      <div class="card">
-        <h2>${usuarios.length}</h2>
-        <p>Usuarios</p>
-      </div>
-
-      <div class="card">
-        <h2>${colaboradores.length}</h2>
-        <p>Colaboradores</p>
-      </div>
-
-      <div class="card">
-        <h2>${solicitudes.length}</h2>
-        <p>Solicitudes totales</p>
-      </div>
-
-      <div class="card">
-        <h2>${pendientes.length}</h2>
-        <p>Pendientes</p>
-      </div>
-
-      <div class="card">
-        <h2>${aceptadas.length}</h2>
-        <p>Aceptadas</p>
-      </div>
-
-      <div class="card">
-        <h2>${finalizadas.length}</h2>
-        <p>Finalizadas</p>
-      </div>
+      <div class="card"><h2>${usuarios.length}</h2><p>Usuarios</p></div>
+      <div class="card"><h2>${colaboradores.length}</h2><p>Colaboradores</p></div>
+      <div class="card"><h2>${solicitudes.length}</h2><p>Solicitudes totales</p></div>
+      <div class="card"><h2>${pendientes.length}</h2><p>Pendientes</p></div>
+      <div class="card"><h2>${aceptadas.length}</h2><p>Aceptadas</p></div>
+      <div class="card"><h2>${finalizadas.length}</h2><p>Finalizadas</p></div>
     </div>
 
     <div class="card">
@@ -602,9 +590,7 @@ async function renderPanelAdmin() {
 
     <div class="card">
       <h2>📋 Solicitudes registradas</h2>
-
       ${solicitudes.length === 0 ? "<p>No hay solicitudes registradas.</p>" : ""}
-
       ${solicitudes.slice().reverse().map(s => `
         <div class="card">
           <h3>${s.Servicio} · #${s.ID}</h3>
@@ -621,9 +607,7 @@ async function renderPanelAdmin() {
 
     <div class="card">
       <h2>👤 Usuarios registrados</h2>
-
       ${usuarios.length === 0 ? "<p>No hay usuarios registrados.</p>" : ""}
-
       ${usuarios.map(u => `
         <div class="card">
           <h3>${u.Nombre} ${u["Primer apellido"]} ${u["Segundo apellido"]}</h3>
@@ -637,9 +621,7 @@ async function renderPanelAdmin() {
 
     <div class="card">
       <h2>🛠️ Colaboradores registrados</h2>
-
       ${colaboradores.length === 0 ? "<p>No hay colaboradores registrados.</p>" : ""}
-
       ${colaboradores.map(c => `
         <div class="card">
           <h3>${c.Nombre} ${c["Primer apellido"]} ${c["Segundo apellido"]}</h3>
@@ -654,9 +636,22 @@ async function renderPanelAdmin() {
     </div>
   `;
 }
-// =====================================================
-// INICIO DE LA APP
-// =====================================================
+
+window.loginUsuario = loginUsuario;
+window.loginColaborador = loginColaborador;
+window.loginAdmin = loginAdmin;
+window.registrarUsuario = registrarUsuario;
+window.registrarColaborador = registrarColaborador;
+window.renderPanelUsuario = renderPanelUsuario;
+window.renderPanelColaborador = renderPanelColaborador;
+window.renderPanelAdmin = renderPanelAdmin;
+window.renderCrearSolicitud = renderCrearSolicitud;
+window.crearSolicitud = crearSolicitud;
+window.cambiarEstadoColaborador = cambiarEstadoColaborador;
+window.aceptarSolicitud = aceptarSolicitud;
+window.finalizarSolicitud = finalizarSolicitud;
+window.cerrarSesion = cerrarSesion;
+window.activarNotificaciones = activarNotificaciones;
 
 document.addEventListener("DOMContentLoaded", () => {
   cargarSesion();

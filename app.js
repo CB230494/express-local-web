@@ -26,13 +26,49 @@ let sesion = {
   persona: null
 };
 
+let refrescoActivo = null;
+let vistaActual = "login";
+
 async function api(accion, datos = {}) {
   const respuesta = await fetch(API_URL, {
     method: "POST",
+    cache: "no-store",
     body: JSON.stringify({ accion, ...datos })
   });
 
   return await respuesta.json();
+}
+
+function iniciarRefrescoAutomatico() {
+  if (refrescoActivo) {
+    clearInterval(refrescoActivo);
+  }
+
+  refrescoActivo = setInterval(() => {
+    if (!sesion.tipo) return;
+
+    if (sesion.tipo === "Usuario" && vistaActual === "panelUsuario") {
+      renderPanelUsuario(true);
+      return;
+    }
+
+    if (sesion.tipo === "Colaborador" && vistaActual === "panelColaborador") {
+      renderPanelColaborador(true);
+      return;
+    }
+
+    if (sesion.tipo === "Administrador" && vistaActual === "panelAdmin") {
+      renderPanelAdmin(true);
+      return;
+    }
+  }, 3000);
+}
+
+function detenerRefrescoAutomatico() {
+  if (refrescoActivo) {
+    clearInterval(refrescoActivo);
+    refrescoActivo = null;
+  }
 }
 
 function guardarSesion(tipo, persona) {
@@ -47,6 +83,7 @@ function cargarSesion() {
 }
 
 function cerrarSesion() {
+  detenerRefrescoAutomatico();
   localStorage.removeItem("express_sesion");
   sesion = { tipo: null, persona: null };
   renderLogin();
@@ -96,7 +133,6 @@ function whatsapp(numero, mensaje) {
 
 function formatearFechaHora(fecha) {
   if (!fecha) return "";
-
   const f = new Date(fecha);
 
   if (isNaN(f.getTime())) {
@@ -123,6 +159,8 @@ function hero() {
 }
 
 function renderLogin() {
+  vistaActual = "login";
+
   document.getElementById("app").innerHTML = `
     ${hero()}
 
@@ -196,6 +234,7 @@ async function loginUsuario() {
   }
 
   guardarSesion("Usuario", r.persona);
+  iniciarRefrescoAutomatico();
   renderPanelUsuario();
 }
 
@@ -211,6 +250,7 @@ async function loginColaborador() {
   }
 
   guardarSesion("Colaborador", r.persona);
+  iniciarRefrescoAutomatico();
   renderPanelColaborador();
 }
 
@@ -226,6 +266,7 @@ async function loginAdmin() {
   }
 
   guardarSesion("Administrador", { usuario });
+  iniciarRefrescoAutomatico();
   renderPanelAdmin();
 }
 
@@ -246,6 +287,7 @@ async function registrarUsuario() {
 
   alert("Usuario registrado correctamente.");
   guardarSesion("Usuario", r.persona);
+  iniciarRefrescoAutomatico();
   renderPanelUsuario();
 }
 
@@ -268,6 +310,7 @@ async function registrarColaborador() {
 
   alert("Colaborador registrado correctamente.");
   guardarSesion("Colaborador", r.persona);
+  iniciarRefrescoAutomatico();
   renderPanelColaborador();
 }
 
@@ -330,7 +373,9 @@ onMessage(messaging, (payload) => {
   alert(`${titulo}\n${cuerpo}`);
 });
 
-async function renderPanelUsuario() {
+async function renderPanelUsuario(silencioso = false) {
+  vistaActual = "panelUsuario";
+
   const datos = await api("obtenerDatosIniciales");
   const usuario = sesion.persona;
 
@@ -386,7 +431,9 @@ async function renderPanelUsuario() {
   `;
 }
 
-async function renderCrearSolicitud(servicio) {
+function renderCrearSolicitud(servicio) {
+  vistaActual = "crearSolicitud";
+
   document.getElementById("app").innerHTML = `
     <div class="card">
       <h2>Solicitar ${servicio}</h2>
@@ -425,7 +472,9 @@ async function crearSolicitud(servicio) {
   renderPanelUsuario();
 }
 
-async function renderPanelColaborador() {
+async function renderPanelColaborador(silencioso = false) {
+  vistaActual = "panelColaborador";
+
   const datos = await api("obtenerDatosIniciales");
   const c = sesion.persona;
 
@@ -552,7 +601,9 @@ async function finalizarSolicitud(id) {
   renderPanelColaborador();
 }
 
-async function renderPanelAdmin() {
+async function renderPanelAdmin(silencioso = false) {
+  vistaActual = "panelAdmin";
+
   const datos = await api("obtenerDatosIniciales");
 
   const usuarios = datos.usuarios || [];
@@ -657,16 +708,19 @@ document.addEventListener("DOMContentLoaded", () => {
   cargarSesion();
 
   if (sesion.tipo === "Usuario") {
+    iniciarRefrescoAutomatico();
     renderPanelUsuario();
     return;
   }
 
   if (sesion.tipo === "Colaborador") {
+    iniciarRefrescoAutomatico();
     renderPanelColaborador();
     return;
   }
 
   if (sesion.tipo === "Administrador") {
+    iniciarRefrescoAutomatico();
     renderPanelAdmin();
     return;
   }

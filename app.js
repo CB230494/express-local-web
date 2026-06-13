@@ -504,11 +504,6 @@ async function finalizarSolicitud(id) {
 document.addEventListener("DOMContentLoaded", () => {
   cargarSesion();
 
-  if (!sesion.tipo) {
-    renderLogin();
-    return;
-  }
-
   if (sesion.tipo === "Usuario") {
     renderPanelUsuario();
     return;
@@ -516,11 +511,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (sesion.tipo === "Colaborador") {
     renderPanelColaborador();
-    return;
-  }
-
-  if (sesion.tipo === "Administrador") {
-    renderPanelAdmin();
     return;
   }
 

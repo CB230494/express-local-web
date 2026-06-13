@@ -1,3 +1,24 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getMessaging,
+  getToken,
+  onMessage
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCQfbLIlHZ18BNBqKAxIRY7HHd_QcQbpxg",
+  authDomain: "express-local-push-test.firebaseapp.com",
+  projectId: "express-local-push-test",
+  storageBucket: "express-local-push-test.firebasestorage.app",
+  messagingSenderId: "895952227571",
+  appId: "1:895952227571:web:53b7cbc65e2acc69993b86"
+};
+
+const vapidKey =
+  "BDAeUsGr4l__q54Crj0gZpmhIrGex_Yr3bBZljhB1JB7zFvFIR-V0IzwRCZNo3OifsvRNCF0lWyuW9gY-9AK_c8";
+
+const firebaseApp = initializeApp(firebaseConfig);
+const messaging = getMessaging(firebaseApp);
 const API_URL = "https://script.google.com/macros/s/AKfycbz7NTgUWeC9-0FydoQzW1sCYJqhru4bOydL7itqGzEIAnd3RDSfF2y5ZTkLBQN45iCh/exec";
 
 let sesion = {

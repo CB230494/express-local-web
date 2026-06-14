@@ -135,7 +135,7 @@ function renderLogin() {
   document.getElementById("app").innerHTML = `
     ${hero()}
 
-    <div class="login-options">
+    <div class="login-options two-options">
       <div class="card option-card" onclick="renderIngresoUsuario()">
         <div class="option-icon">👤</div>
         <h2>Soy usuario</h2>
@@ -149,14 +149,11 @@ function renderLogin() {
         <p>Recibir y aceptar solicitudes disponibles.</p>
         <button>Ingresar</button>
       </div>
-
-      <div class="card option-card" onclick="renderIngresoAdmin()">
-        <div class="option-icon">🔐</div>
-        <h2>Administrador</h2>
-        <p>Control general, usuarios, colaboradores e historial.</p>
-        <button>Ingresar</button>
-      </div>
     </div>
+
+    <button class="admin-floating-btn" onclick="renderIngresoAdmin()">
+      🔐 Admin
+    </button>
   `;
 }
 

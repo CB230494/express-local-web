@@ -246,3 +246,55 @@ textarea {
     font-size: 24px;
   }
 }
+body {
+  background:
+    radial-gradient(circle at top left, rgba(255, 75, 31, 0.16), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.12), transparent 32%),
+    linear-gradient(135deg, #050816, #0f172a);
+}
+
+.two-options {
+  grid-template-columns: repeat(2, 1fr);
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.admin-floating-btn {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  width: auto;
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.92);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.16);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+  z-index: 99;
+}
+
+.admin-floating-btn:hover {
+  background: #ff4b1f;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.hero-card {
+  background:
+    linear-gradient(135deg, rgba(17, 24, 39, 0.98), rgba(30, 41, 59, 0.96));
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+@media (max-width: 850px) {
+  .two-options {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-floating-btn {
+    right: 14px;
+    bottom: 14px;
+  }
+}

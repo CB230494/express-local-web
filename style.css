@@ -131,6 +131,13 @@ textarea {
   background: white;
 }
 
+input[type="file"] {
+  padding: 14px;
+  background: #f8fafc;
+  border: 2px dashed #cbd5e1;
+  cursor: pointer;
+}
+
 textarea {
   min-height: 120px;
   resize: vertical;
@@ -194,12 +201,12 @@ textarea {
   color: white;
   border-radius: 28px;
   padding: 26px;
-  min-height: 180px;
+  min-height: 190px;
   box-shadow: var(--shadow);
 }
 
 .service p {
-  color: rgba(255,255,255,0.86);
+  color: rgba(255,255,255,0.9);
 }
 
 .topbar {
@@ -406,6 +413,41 @@ textarea {
   border-left: 6px solid var(--primary);
 }
 
+/* DISPONIBILIDAD */
+
+.availability-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.availability-card {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 24px;
+  padding: 22px;
+  text-align: center;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.availability-icon {
+  font-size: 34px;
+  margin-bottom: 8px;
+}
+
+.availability-card h3 {
+  margin: 6px 0;
+}
+
+.availability-card strong {
+  display: block;
+  font-size: 42px;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.availability-card p {
+  margin-bottom: 0;
+}
+
 /* ANUNCIOS */
 
 .ad-strip {
@@ -444,6 +486,20 @@ textarea {
   margin-top: 0;
 }
 
+/* CARGA */
+
+.loading-card {
+  background: rgba(255,255,255,0.96);
+  border-radius: 28px;
+  padding: 28px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+
+.loading-card p {
+  margin: 0;
+}
+
 /* RESPONSIVE */
 
 @media (max-width: 1050px) {
@@ -451,7 +507,8 @@ textarea {
   .admin-stats,
   .quick-actions,
   .ad-grid,
-  .ad-strip {
+  .ad-strip,
+  .availability-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
@@ -474,7 +531,8 @@ textarea {
   .ad-grid,
   .ad-strip,
   .admin-actions,
-  .search-row {
+  .search-row,
+  .availability-grid {
     grid-template-columns: 1fr;
   }
 
@@ -498,6 +556,15 @@ textarea {
 
   h2 {
     font-size: 24px;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .small-btn {
+    width: 100%;
   }
 
   .admin-floating-btn {

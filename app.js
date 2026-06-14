@@ -20,7 +20,14 @@ let sesion = { tipo: null, persona: null };
 let refrescoActivo = null;
 let vistaActual = "login";
 let idsPendientesVistos = new Set();
-let idsUsuarioAceptadasVistas = new Set();
+let idsUsuarioEstadosVistos = new Set();
+
+const SERVICIOS_UI = {
+  Taxi: { icono: "🚕", color: "linear-gradient(135deg,#facc15,#f97316)", texto: "Viajes locales y traslados rápidos." },
+  Express: { icono: "🛵", color: "linear-gradient(135deg,#ef4444,#fb7185)", texto: "Mandados, compras y entregas rápidas." },
+  Carga: { icono: "📦", color: "linear-gradient(135deg,#2563eb,#06b6d4)", texto: "Paquetes, compras grandes o artículos medianos." },
+  Camión: { icono: "🚚", color: "linear-gradient(135deg,#16a34a,#22c55e)", texto: "Mudanzas, materiales y carga pesada." }
+};
 
 async function api(accion, datos = {}) {
   const respuesta = await fetch(API_URL, {
@@ -29,6 +36,17 @@ async function api(accion, datos = {}) {
     body: JSON.stringify({ accion, ...datos })
   });
   return await respuesta.json();
+}
+
+function guardarSesion(tipo, persona) {
+  sesion.tipo = tipo;
+  sesion.persona = persona;
+  localStorage.setItem("express_sesion", JSON.stringify(sesion));
+}
+
+function cargarSesion() {
+  const guardada = localStorage.getItem("express_sesion");
+  if (guardada) sesion = JSON.parse(guardada);
 }
 
 function iniciarRefrescoAutomatico() {
@@ -48,41 +66,25 @@ function detenerRefrescoAutomatico() {
   refrescoActivo = null;
 }
 
-function guardarSesion(tipo, persona) {
-  sesion.tipo = tipo;
-  sesion.persona = persona;
-  localStorage.setItem("express_sesion", JSON.stringify(sesion));
-}
-
-function cargarSesion() {
-  const guardada = localStorage.getItem("express_sesion");
-  if (guardada) sesion = JSON.parse(guardada);
-}
-
 function cerrarSesion() {
   detenerRefrescoAutomatico();
   localStorage.removeItem("express_sesion");
   sesion = { tipo: null, persona: null };
   idsPendientesVistos = new Set();
-  idsUsuarioAceptadasVistas = new Set();
+  idsUsuarioEstadosVistos = new Set();
   renderLogin();
 }
 
-const SERVICIOS_UI = {
-  Taxi: { icono: "🚕", color: "linear-gradient(135deg,#facc15,#f97316)", texto: "Viajes locales y traslados rápidos." },
-  Express: { icono: "🛵", color: "linear-gradient(135deg,#ef4444,#fb7185)", texto: "Mandados, compras y entregas rápidas." },
-  Carga: { icono: "📦", color: "linear-gradient(135deg,#2563eb,#06b6d4)", texto: "Paquetes, compras grandes o artículos medianos." },
-  Camión: { icono: "🚚", color: "linear-gradient(135deg,#16a34a,#22c55e)", texto: "Mudanzas, materiales y carga pesada." }
-};
-
 function badge(estado) {
   const e = String(estado || "").toLowerCase();
+
   if (e === "pendiente") return `<span class="badge pendiente">⏳ Pendiente</span>`;
   if (e === "aceptado") return `<span class="badge aceptado">✅ Aceptado</span>`;
   if (e === "finalizado") return `<span class="badge finalizado">🏁 Finalizado</span>`;
   if (e === "disponible") return `<span class="badge disponible">🟢 Disponible</span>`;
   if (e === "ocupado") return `<span class="badge ocupado">🔴 Ocupado</span>`;
   if (e === "fuera de servicio") return `<span class="badge fuera">⚫ Fuera de servicio</span>`;
+
   return `<span class="badge fuera">${estado || ""}</span>`;
 }
 
@@ -165,12 +167,14 @@ function renderLogin() {
         <input id="colApellido1" placeholder="Primer apellido">
         <input id="colApellido2" placeholder="Segundo apellido">
         <input id="colTelefono" placeholder="Teléfono">
+
         <select id="colServicio">
           <option>Taxi</option>
           <option>Express</option>
           <option>Carga</option>
           <option>Camión</option>
         </select>
+
         <input id="colCodigo" type="password" placeholder="Código autorizado">
         <input id="colUsuario" placeholder="Usuario">
         <input id="colClave" type="password" placeholder="Clave personal">
@@ -305,42 +309,47 @@ onMessage(messaging, (payload) => {
   notificacionLocal(titulo, cuerpo);
 });
 
+function obtenerSolicitudActivaUsuario(solicitudes, usuarioId) {
+  const activas = solicitudes.filter(s =>
+    s["Cliente ID"] === usuarioId &&
+    s.Estado !== "Finalizado"
+  );
+
+  return activas.length ? activas[activas.length - 1] : null;
+}
+
 async function renderPanelUsuario(silencioso = false) {
   vistaActual = "panelUsuario";
 
   const datos = await api("obtenerDatosIniciales");
   const usuario = sesion.persona;
+  const solicitudes = datos.solicitudes || [];
+  const activa = obtenerSolicitudActivaUsuario(solicitudes, usuario.ID);
 
-  const misSolicitudes = (datos.solicitudes || []).filter(
-    s => s["Cliente ID"] === usuario.ID
-  );
+  if (silencioso && activa) {
+    const llave = `${activa.ID}-${activa.Estado}`;
+    if (!idsUsuarioEstadosVistos.has(llave)) {
+      idsUsuarioEstadosVistos.add(llave);
 
-  const aceptadasActuales = misSolicitudes.filter(s => s.Estado === "Aceptado" || s.Estado === "Finalizado");
-
-  if (silencioso) {
-    aceptadasActuales.forEach(s => {
-      const llave = `${s.ID}-${s.Estado}`;
-      if (!idsUsuarioAceptadasVistas.has(llave)) {
-        idsUsuarioAceptadasVistas.add(llave);
-
-        if (s.Estado === "Aceptado") {
-          notificacionLocal("✅ Solicitud aceptada", `${s.Colaborador || "Un colaborador"} aceptó su solicitud ${s.Servicio}.`);
-        }
-
-        if (s.Estado === "Finalizado") {
-          notificacionLocal("🏁 Servicio finalizado", `Su servicio ${s.Servicio} fue finalizado.`);
-        }
+      if (activa.Estado === "Aceptado") {
+        notificacionLocal("✅ Solicitud aceptada", `${activa.Colaborador || "Un colaborador"} aceptó su solicitud ${activa.Servicio}.`);
       }
-    });
-  } else {
-    aceptadasActuales.forEach(s => idsUsuarioAceptadasVistas.add(`${s.ID}-${s.Estado}`));
+
+      if (activa.Estado === "Finalizado") {
+        notificacionLocal("🏁 Servicio finalizado", `Su servicio ${activa.Servicio} fue finalizado.`);
+      }
+    }
+  }
+
+  if (!silencioso && activa) {
+    idsUsuarioEstadosVistos.add(`${activa.ID}-${activa.Estado}`);
   }
 
   document.getElementById("app").innerHTML = `
     <div class="topbar card">
       <div>
         <h2>Hola, ${usuario.Nombre} 👋</h2>
-        <p>Seleccione el servicio que necesita.</p>
+        <p>${activa ? "Servicio activo en seguimiento." : "Seleccione el servicio que necesita."}</p>
       </div>
       <button class="small-btn" onclick="cerrarSesion()">Salir</button>
     </div>
@@ -351,6 +360,16 @@ async function renderPanelUsuario(silencioso = false) {
       <button onclick="activarNotificaciones()">Activar notificaciones</button>
     </div>
 
+    ${
+      activa
+        ? renderSolicitudActivaUsuario(activa)
+        : renderSelectorServicios()
+    }
+  `;
+}
+
+function renderSelectorServicios() {
+  return `
     <div class="grid">
       ${Object.keys(SERVICIOS_UI).map(servicio => `
         <div class="service" style="background:${SERVICIOS_UI[servicio].color}">
@@ -360,26 +379,28 @@ async function renderPanelUsuario(silencioso = false) {
         </div>
       `).join("")}
     </div>
+  `;
+}
 
+function renderSolicitudActivaUsuario(s) {
+  return `
     <div class="card">
-      <h2>📋 Mis solicitudes</h2>
-      ${misSolicitudes.length === 0 ? "<p>No tiene solicitudes registradas.</p>" : ""}
-      ${misSolicitudes.slice().reverse().map(s => `
-        <div class="card">
-          <h3>${s.Servicio} · #${s.ID}</h3>
-          <p><b>Fecha:</b> ${formatearFechaHora(s.Fecha)}</p>
-          <p><b>Estado:</b> ${badge(s.Estado)}</p>
-          <p><b>Detalle:</b> ${s.Detalle}</p>
-          <p><b>Colaborador:</b> ${s.Colaborador || "Pendiente"}</p>
-          ${
-            s.Estado === "Aceptado" && s["Teléfono colaborador"]
-              ? `<a href="${whatsapp(s["Teléfono colaborador"], "Hola, soy " + s.Cliente + ". Tengo la solicitud #" + s.ID)}" target="_blank">
-                   <button>💬 Chatear con colaborador</button>
-                 </a>`
-              : ""
-          }
-        </div>
-      `).join("")}
+      <h2>📍 Solicitud activa</h2>
+      <h3>${s.Servicio} · #${s.ID}</h3>
+      <p><b>Fecha:</b> ${formatearFechaHora(s.Fecha)}</p>
+      <p><b>Estado:</b> ${badge(s.Estado)}</p>
+      <p><b>Detalle:</b> ${s.Detalle}</p>
+      <p><b>Colaborador:</b> ${s.Colaborador || "Buscando colaborador disponible..."}</p>
+
+      ${
+        s.Estado === "Aceptado" && s["Teléfono colaborador"]
+          ? `<a href="${whatsapp(s["Teléfono colaborador"], "Hola, soy " + s.Cliente + ". Tengo la solicitud #" + s.ID)}" target="_blank">
+               <button>💬 Chatear con colaborador</button>
+             </a>`
+          : ""
+      }
+
+      ${s.Estado === "Finalizado" ? `<button onclick="renderPanelUsuario()">Nuevo servicio</button>` : ""}
     </div>
   `;
 }
@@ -416,7 +437,17 @@ async function crearSolicitud(servicio) {
   if (!r.ok) return alert("No se pudo crear la solicitud.");
 
   alert("Solicitud enviada correctamente.");
+  vistaActual = "panelUsuario";
   renderPanelUsuario();
+}
+
+function obtenerTrabajoActivoColaborador(solicitudes, colaboradorId) {
+  const activas = solicitudes.filter(s =>
+    s["Colaborador ID"] === colaboradorId &&
+    s.Estado !== "Finalizado"
+  );
+
+  return activas.length ? activas[activas.length - 1] : null;
 }
 
 async function renderPanelColaborador(silencioso = false) {
@@ -424,10 +455,13 @@ async function renderPanelColaborador(silencioso = false) {
 
   const datos = await api("obtenerDatosIniciales");
   const c = sesion.persona;
+  const solicitudes = datos.solicitudes || [];
 
-  const pendientes = (datos.solicitudes || []).filter(
-    s => s.Servicio === c.Servicio && s.Estado === "Pendiente"
-  );
+  const trabajoActivo = obtenerTrabajoActivoColaborador(solicitudes, c.ID);
+
+  const pendientes = trabajoActivo
+    ? []
+    : solicitudes.filter(s => s.Servicio === c.Servicio && s.Estado === "Pendiente");
 
   if (silencioso) {
     pendientes.forEach(s => {
@@ -439,10 +473,6 @@ async function renderPanelColaborador(silencioso = false) {
   } else {
     pendientes.forEach(s => idsPendientesVistos.add(s.ID));
   }
-
-  const mias = (datos.solicitudes || []).filter(
-    s => s["Colaborador ID"] === c.ID
-  );
 
   document.getElementById("app").innerHTML = `
     <div class="topbar card">
@@ -469,9 +499,19 @@ async function renderPanelColaborador(silencioso = false) {
       <button onclick="cambiarEstadoColaborador()">Actualizar estado</button>
     </div>
 
+    ${
+      trabajoActivo
+        ? renderTrabajoActivoColaborador(trabajoActivo)
+        : renderPendientesColaborador(pendientes)
+    }
+  `;
+}
+
+function renderPendientesColaborador(pendientes) {
+  return `
     <div class="card">
-      <h2>🔔 Solicitudes pendientes</h2>
-      ${pendientes.length === 0 ? "<p>No hay solicitudes pendientes.</p>" : ""}
+      <h2>🔔 Solicitudes disponibles</h2>
+      ${pendientes.length === 0 ? "<p>No hay solicitudes disponibles en este momento.</p>" : ""}
       ${pendientes.slice().reverse().map(s => `
         <div class="card">
           <h3>${s.Servicio} · #${s.ID}</h3>
@@ -482,26 +522,23 @@ async function renderPanelColaborador(silencioso = false) {
         </div>
       `).join("")}
     </div>
+  `;
+}
 
+function renderTrabajoActivoColaborador(s) {
+  return `
     <div class="card">
-      <h2>📌 Mis servicios</h2>
-      ${mias.length === 0 ? "<p>No tiene servicios aceptados.</p>" : ""}
-      ${mias.slice().reverse().map(s => `
-        <div class="card">
-          <h3>${s.Servicio} · #${s.ID}</h3>
-          <p><b>Cliente:</b> ${s.Cliente}</p>
-          <p><b>Estado:</b> ${badge(s.Estado)}</p>
-          <p><b>Detalle:</b> ${s.Detalle}</p>
+      <h2>📌 Servicio activo</h2>
+      <h3>${s.Servicio} · #${s.ID}</h3>
+      <p><b>Cliente:</b> ${s.Cliente}</p>
+      <p><b>Estado:</b> ${badge(s.Estado)}</p>
+      <p><b>Detalle:</b> ${s.Detalle}</p>
 
-          <a href="${whatsapp(s["Teléfono cliente"], "Hola, soy " + s.Colaborador + ". Acepté su solicitud #" + s.ID)}" target="_blank">
-            <button>💬 Chatear con cliente</button>
-          </a>
+      <a href="${whatsapp(s["Teléfono cliente"], "Hola, soy " + s.Colaborador + ". Acepté su solicitud #" + s.ID)}" target="_blank">
+        <button>💬 Chatear con cliente</button>
+      </a>
 
-          ${s.Estado !== "Finalizado"
-            ? `<button onclick="finalizarSolicitud('${s.ID}')">🏁 Finalizar solicitud</button>`
-            : ""}
-        </div>
-      `).join("")}
+      <button onclick="finalizarSolicitud('${s.ID}')">🏁 Finalizar solicitud</button>
     </div>
   `;
 }
@@ -551,7 +588,6 @@ async function renderPanelAdmin(silencioso = false) {
   vistaActual = "panelAdmin";
 
   const datos = await api("obtenerDatosIniciales");
-
   const usuarios = datos.usuarios || [];
   const colaboradores = datos.colaboradores || [];
   const solicitudes = datos.solicitudes || [];
@@ -579,15 +615,46 @@ async function renderPanelAdmin(silencioso = false) {
     </div>
 
     <div class="card">
-      <h2>📋 Solicitudes registradas</h2>
+      <h2>📋 Historial de solicitudes</h2>
+      ${solicitudes.length === 0 ? "<p>No hay solicitudes registradas.</p>" : ""}
       ${solicitudes.slice().reverse().map(s => `
         <div class="card">
           <h3>${s.Servicio} · #${s.ID}</h3>
           <p><b>Fecha:</b> ${formatearFechaHora(s.Fecha)}</p>
           <p><b>Cliente:</b> ${s.Cliente}</p>
+          <p><b>Teléfono cliente:</b> ${s["Teléfono cliente"]}</p>
           <p><b>Detalle:</b> ${s.Detalle}</p>
           <p><b>Estado:</b> ${badge(s.Estado)}</p>
           <p><b>Colaborador:</b> ${s.Colaborador || "Sin asignar"}</p>
+          <p><b>Teléfono colaborador:</b> ${s["Teléfono colaborador"] || "Sin asignar"}</p>
+        </div>
+      `).join("")}
+    </div>
+
+    <div class="card">
+      <h2>👤 Usuarios registrados</h2>
+      ${usuarios.map(u => `
+        <div class="card">
+          <h3>${u.Nombre} ${u["Primer apellido"]} ${u["Segundo apellido"]}</h3>
+          <p><b>Usuario:</b> ${u.Usuario}</p>
+          <p><b>Teléfono:</b> ${u["Teléfono"]}</p>
+          <p><b>Fecha:</b> ${formatearFechaHora(u.Fecha)}</p>
+          <p><b>Push Token:</b> ${u["Push Token"] ? "Sí" : "No"}</p>
+        </div>
+      `).join("")}
+    </div>
+
+    <div class="card">
+      <h2>🛠️ Colaboradores registrados</h2>
+      ${colaboradores.map(c => `
+        <div class="card">
+          <h3>${c.Nombre} ${c["Primer apellido"]} ${c["Segundo apellido"]}</h3>
+          <p><b>Usuario:</b> ${c.Usuario}</p>
+          <p><b>Servicio:</b> ${c.Servicio}</p>
+          <p><b>Estado:</b> ${badge(c.Estado)}</p>
+          <p><b>Teléfono:</b> ${c["Teléfono"]}</p>
+          <p><b>Fecha:</b> ${formatearFechaHora(c.Fecha)}</p>
+          <p><b>Push Token:</b> ${c["Push Token"] ? "Sí" : "No"}</p>
         </div>
       `).join("")}
     </div>

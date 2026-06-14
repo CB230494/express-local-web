@@ -120,9 +120,11 @@ function notificacionLocal(titulo, cuerpo) {
 
 function hero() {
   return `
-    <div class="card">
-      <h1>🛵 Express <span>Local</span></h1>
-      <p>Solicita taxi, express, carga y camión de forma rápida y segura.</p>
+    <div class="card hero-card">
+      <div>
+        <h1>Express <span>Local</span></h1>
+        <p>Transporte, mandados, carga y camión cuando lo necesite.</p>
+      </div>
     </div>
   `;
 }
@@ -133,36 +135,100 @@ function renderLogin() {
   document.getElementById("app").innerHTML = `
     ${hero()}
 
-    <div class="tabs">
-      <div class="card">
-        <h2>👤 Ingreso usuario</h2>
-        <input id="loginUsuario" placeholder="Usuario">
-        <input id="loginClave" type="password" placeholder="Clave">
-        <button onclick="loginUsuario()">Ingresar como usuario</button>
+    <div class="login-options">
+      <div class="card option-card" onclick="renderIngresoUsuario()">
+        <div class="option-icon">👤</div>
+        <h2>Soy usuario</h2>
+        <p>Solicitar taxi, express, carga o camión.</p>
+        <button>Ingresar</button>
       </div>
 
-      <div class="card">
-        <h2>👤 Registro usuario</h2>
+      <div class="card option-card" onclick="renderIngresoColaborador()">
+        <div class="option-icon">🛠️</div>
+        <h2>Soy colaborador</h2>
+        <p>Recibir y aceptar solicitudes disponibles.</p>
+        <button>Ingresar</button>
+      </div>
+
+      <div class="card option-card" onclick="renderIngresoAdmin()">
+        <div class="option-icon">🔐</div>
+        <h2>Administrador</h2>
+        <p>Control general, usuarios, colaboradores e historial.</p>
+        <button>Ingresar</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderIngresoUsuario() {
+  vistaActual = "loginUsuario";
+
+  document.getElementById("app").innerHTML = `
+    ${hero()}
+
+    <div class="card">
+      <h2>👤 Ingreso usuario</h2>
+      <input id="loginUsuario" placeholder="Usuario">
+      <input id="loginClave" type="password" placeholder="Clave">
+      <button onclick="loginUsuario()">Ingresar como usuario</button>
+      <button class="ghost-btn" onclick="renderRegistroUsuario()">Crear cuenta nueva</button>
+      <button class="ghost-btn" onclick="renderLogin()">Volver</button>
+    </div>
+  `;
+}
+
+function renderRegistroUsuario() {
+  vistaActual = "registroUsuario";
+
+  document.getElementById("app").innerHTML = `
+    ${hero()}
+
+    <div class="card">
+      <h2>👤 Registro usuario</h2>
+
+      <div class="form-grid">
         <input id="regNombre" placeholder="Nombre">
         <input id="regApellido1" placeholder="Primer apellido">
         <input id="regApellido2" placeholder="Segundo apellido">
         <input id="regTelefono" placeholder="Teléfono">
         <input id="regUsuario" placeholder="Usuario">
         <input id="regClave" type="password" placeholder="Clave">
-        <button onclick="registrarUsuario()">Registrarme</button>
       </div>
+
+      <button onclick="registrarUsuario()">Registrarme</button>
+      <button class="ghost-btn" onclick="renderIngresoUsuario()">Ya tengo cuenta</button>
+      <button class="ghost-btn" onclick="renderLogin()">Volver</button>
     </div>
+  `;
+}
 
-    <div class="tabs">
-      <div class="card">
-        <h2>🛠️ Ingreso colaborador</h2>
-        <input id="loginColUsuario" placeholder="Usuario">
-        <input id="loginColClave" type="password" placeholder="Clave">
-        <button onclick="loginColaborador()">Ingresar como colaborador</button>
-      </div>
+function renderIngresoColaborador() {
+  vistaActual = "loginColaborador";
 
-      <div class="card">
-        <h2>🧰 Registro colaborador</h2>
+  document.getElementById("app").innerHTML = `
+    ${hero()}
+
+    <div class="card">
+      <h2>🛠️ Ingreso colaborador</h2>
+      <input id="loginColUsuario" placeholder="Usuario">
+      <input id="loginColClave" type="password" placeholder="Clave">
+      <button onclick="loginColaborador()">Ingresar como colaborador</button>
+      <button class="ghost-btn" onclick="renderRegistroColaborador()">Registrarme como colaborador</button>
+      <button class="ghost-btn" onclick="renderLogin()">Volver</button>
+    </div>
+  `;
+}
+
+function renderRegistroColaborador() {
+  vistaActual = "registroColaborador";
+
+  document.getElementById("app").innerHTML = `
+    ${hero()}
+
+    <div class="card">
+      <h2>🧰 Registro colaborador</h2>
+
+      <div class="form-grid">
         <input id="colNombre" placeholder="Nombre">
         <input id="colApellido1" placeholder="Primer apellido">
         <input id="colApellido2" placeholder="Segundo apellido">
@@ -178,15 +244,27 @@ function renderLogin() {
         <input id="colCodigo" type="password" placeholder="Código autorizado">
         <input id="colUsuario" placeholder="Usuario">
         <input id="colClave" type="password" placeholder="Clave personal">
-        <button onclick="registrarColaborador()">Registrarme como colaborador</button>
       </div>
+
+      <button onclick="registrarColaborador()">Registrarme como colaborador</button>
+      <button class="ghost-btn" onclick="renderIngresoColaborador()">Ya tengo cuenta</button>
+      <button class="ghost-btn" onclick="renderLogin()">Volver</button>
     </div>
+  `;
+}
+
+function renderIngresoAdmin() {
+  vistaActual = "loginAdmin";
+
+  document.getElementById("app").innerHTML = `
+    ${hero()}
 
     <div class="card">
       <h2>🔐 Administrador</h2>
       <input id="adminUsuario" placeholder="Usuario administrador">
       <input id="adminClave" type="password" placeholder="Clave administrador">
       <button onclick="loginAdmin()">Ingresar administrador</button>
+      <button class="ghost-btn" onclick="renderLogin()">Volver</button>
     </div>
   `;
 }
@@ -328,15 +406,12 @@ async function renderPanelUsuario(silencioso = false) {
 
   if (silencioso && activa) {
     const llave = `${activa.ID}-${activa.Estado}`;
+
     if (!idsUsuarioEstadosVistos.has(llave)) {
       idsUsuarioEstadosVistos.add(llave);
 
       if (activa.Estado === "Aceptado") {
         notificacionLocal("✅ Solicitud aceptada", `${activa.Colaborador || "Un colaborador"} aceptó su solicitud ${activa.Servicio}.`);
-      }
-
-      if (activa.Estado === "Finalizado") {
-        notificacionLocal("🏁 Servicio finalizado", `Su servicio ${activa.Servicio} fue finalizado.`);
       }
     }
   }
@@ -360,11 +435,7 @@ async function renderPanelUsuario(silencioso = false) {
       <button onclick="activarNotificaciones()">Activar notificaciones</button>
     </div>
 
-    ${
-      activa
-        ? renderSolicitudActivaUsuario(activa)
-        : renderSelectorServicios()
-    }
+    ${activa ? renderSolicitudActivaUsuario(activa) : renderSelectorServicios()}
   `;
 }
 
@@ -399,8 +470,6 @@ function renderSolicitudActivaUsuario(s) {
              </a>`
           : ""
       }
-
-      ${s.Estado === "Finalizado" ? `<button onclick="renderPanelUsuario()">Nuevo servicio</button>` : ""}
     </div>
   `;
 }
@@ -413,7 +482,7 @@ function renderCrearSolicitud(servicio) {
       <h2>Solicitar ${servicio}</h2>
       <textarea id="detalleSolicitud" placeholder="Detalle de la solicitud"></textarea>
       <button onclick="crearSolicitud('${servicio}')">Enviar solicitud</button>
-      <button onclick="renderPanelUsuario()">Volver</button>
+      <button class="ghost-btn" onclick="renderPanelUsuario()">Volver</button>
     </div>
   `;
 }
@@ -499,11 +568,7 @@ async function renderPanelColaborador(silencioso = false) {
       <button onclick="cambiarEstadoColaborador()">Actualizar estado</button>
     </div>
 
-    ${
-      trabajoActivo
-        ? renderTrabajoActivoColaborador(trabajoActivo)
-        : renderPendientesColaborador(pendientes)
-    }
+    ${trabajoActivo ? renderTrabajoActivoColaborador(trabajoActivo) : renderPendientesColaborador(pendientes)}
   `;
 }
 
@@ -633,6 +698,7 @@ async function renderPanelAdmin(silencioso = false) {
 
     <div class="card">
       <h2>👤 Usuarios registrados</h2>
+      ${usuarios.length === 0 ? "<p>No hay usuarios registrados.</p>" : ""}
       ${usuarios.map(u => `
         <div class="card">
           <h3>${u.Nombre} ${u["Primer apellido"]} ${u["Segundo apellido"]}</h3>
@@ -646,6 +712,7 @@ async function renderPanelAdmin(silencioso = false) {
 
     <div class="card">
       <h2>🛠️ Colaboradores registrados</h2>
+      ${colaboradores.length === 0 ? "<p>No hay colaboradores registrados.</p>" : ""}
       ${colaboradores.map(c => `
         <div class="card">
           <h3>${c.Nombre} ${c["Primer apellido"]} ${c["Segundo apellido"]}</h3>
@@ -676,6 +743,13 @@ window.aceptarSolicitud = aceptarSolicitud;
 window.finalizarSolicitud = finalizarSolicitud;
 window.cerrarSesion = cerrarSesion;
 window.activarNotificaciones = activarNotificaciones;
+
+window.renderIngresoUsuario = renderIngresoUsuario;
+window.renderRegistroUsuario = renderRegistroUsuario;
+window.renderIngresoColaborador = renderIngresoColaborador;
+window.renderRegistroColaborador = renderRegistroColaborador;
+window.renderIngresoAdmin = renderIngresoAdmin;
+window.renderLogin = renderLogin;
 
 document.addEventListener("DOMContentLoaded", () => {
   cargarSesion();

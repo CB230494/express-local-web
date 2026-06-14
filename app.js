@@ -21,12 +21,29 @@ let refrescoActivo = null;
 let vistaActual = "login";
 let idsPendientesVistos = new Set();
 let idsUsuarioEstadosVistos = new Set();
+let adminVistaActual = "resumen";
 
 const SERVICIOS_UI = {
-  Taxi: { icono: "🚕", color: "linear-gradient(135deg,#facc15,#f97316)", texto: "Viajes locales y traslados rápidos." },
-  Express: { icono: "🛵", color: "linear-gradient(135deg,#ef4444,#fb7185)", texto: "Mandados, compras y entregas rápidas." },
-  Carga: { icono: "📦", color: "linear-gradient(135deg,#2563eb,#06b6d4)", texto: "Paquetes, compras grandes o artículos medianos." },
-  Camión: { icono: "🚚", color: "linear-gradient(135deg,#16a34a,#22c55e)", texto: "Mudanzas, materiales y carga pesada." }
+  Taxi: {
+    icono: "🚕",
+    color: "linear-gradient(135deg,#facc15,#f97316)",
+    texto: "Viajes locales y traslados rápidos."
+  },
+  Express: {
+    icono: "🛵",
+    color: "linear-gradient(135deg,#ef4444,#fb7185)",
+    texto: "Mandados, compras y entregas rápidas."
+  },
+  Carga: {
+    icono: "📦",
+    color: "linear-gradient(135deg,#2563eb,#06b6d4)",
+    texto: "Paquetes, compras grandes o artículos medianos."
+  },
+  Camión: {
+    icono: "🚚",
+    color: "linear-gradient(135deg,#16a34a,#22c55e)",
+    texto: "Mudanzas, materiales y carga pesada."
+  }
 };
 
 async function api(accion, datos = {}) {
@@ -35,6 +52,7 @@ async function api(accion, datos = {}) {
     cache: "no-store",
     body: JSON.stringify({ accion, ...datos })
   });
+
   return await respuesta.json();
 }
 
@@ -46,7 +64,15 @@ function guardarSesion(tipo, persona) {
 
 function cargarSesion() {
   const guardada = localStorage.getItem("express_sesion");
-  if (guardada) sesion = JSON.parse(guardada);
+
+  if (guardada) {
+    try {
+      sesion = JSON.parse(guardada);
+    } catch (error) {
+      localStorage.removeItem("express_sesion");
+      sesion = { tipo: null, persona: null };
+    }
+  }
 }
 
 function iniciarRefrescoAutomatico() {
@@ -55,10 +81,19 @@ function iniciarRefrescoAutomatico() {
   refrescoActivo = setInterval(() => {
     if (!sesion.tipo) return;
 
-    if (sesion.tipo === "Usuario" && vistaActual === "panelUsuario") renderPanelUsuario(true);
-    if (sesion.tipo === "Colaborador" && vistaActual === "panelColaborador") renderPanelColaborador(true);
-    if (sesion.tipo === "Administrador" && vistaActual === "panelAdmin") renderPanelAdmin(true);
-  }, 3000);
+    if (sesion.tipo === "Usuario" && vistaActual === "panelUsuario") {
+      renderPanelUsuario(true);
+    }
+
+    if (sesion.tipo === "Colaborador" && vistaActual === "panelColaborador") {
+      renderPanelColaborador(true);
+    }
+
+    if (sesion.tipo === "Administrador" && vistaActual === "panelAdmin") {
+      if (adminVistaActual === "resumen") renderAdminResumen(true);
+      if (adminVistaActual === "solicitudes24h") renderAdminSolicitudes24h(true);
+    }
+  }, 5000);
 }
 
 function detenerRefrescoAutomatico() {
@@ -72,7 +107,21 @@ function cerrarSesion() {
   sesion = { tipo: null, persona: null };
   idsPendientesVistos = new Set();
   idsUsuarioEstadosVistos = new Set();
+  adminVistaActual = "resumen";
   renderLogin();
+}
+
+function limpiarTexto(texto) {
+  return String(texto || "").trim();
+}
+
+function escaparHTML(texto) {
+  return String(texto || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function badge(estado) {
@@ -85,7 +134,7 @@ function badge(estado) {
   if (e === "ocupado") return `<span class="badge ocupado">🔴 Ocupado</span>`;
   if (e === "fuera de servicio") return `<span class="badge fuera">⚫ Fuera de servicio</span>`;
 
-  return `<span class="badge fuera">${estado || ""}</span>`;
+  return `<span class="badge fuera">${escaparHTML(estado || "")}</span>`;
 }
 
 function whatsapp(numero, mensaje) {
@@ -96,7 +145,9 @@ function whatsapp(numero, mensaje) {
 
 function formatearFechaHora(fecha) {
   if (!fecha) return "";
+
   const f = new Date(fecha);
+
   if (isNaN(f.getTime())) return fecha;
 
   return f.toLocaleString("es-CR", {
@@ -107,6 +158,14 @@ function formatearFechaHora(fecha) {
     minute: "2-digit",
     hour12: true
   });
+}
+
+function fechaInputHoy() {
+  const f = new Date();
+  const y = f.getFullYear();
+  const m = String(f.getMonth() + 1).padStart(2, "0");
+  const d = String(f.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function notificacionLocal(titulo, cuerpo) {
@@ -129,6 +188,76 @@ function hero() {
   `;
 }
 
+function menuUsuario() {
+  return `
+    <div class="app-layout">
+      <aside class="side-menu">
+        <div class="side-brand">
+          <div class="side-logo">🛵</div>
+          <div>
+            <b>Express Local</b>
+            <small>Panel usuario</small>
+          </div>
+        </div>
+
+        <button onclick="renderPanelUsuario()" class="side-link">🏠 Inicio</button>
+        <button onclick="renderPanelUsuarioAnuncios()" class="side-link">📢 Anuncios</button>
+        <button onclick="activarNotificaciones()" class="side-link">🔔 Notificaciones</button>
+        <button onclick="cerrarSesion()" class="side-link danger">🚪 Cerrar sesión</button>
+      </aside>
+
+      <main class="app-content" id="panelContenido"></main>
+    </div>
+  `;
+}
+
+function menuColaborador() {
+  return `
+    <div class="app-layout">
+      <aside class="side-menu">
+        <div class="side-brand">
+          <div class="side-logo">🛠️</div>
+          <div>
+            <b>Express Local</b>
+            <small>Panel colaborador</small>
+          </div>
+        </div>
+
+        <button onclick="renderPanelColaborador()" class="side-link">🏠 Inicio</button>
+        <button onclick="activarNotificaciones()" class="side-link">🔔 Notificaciones</button>
+        <button onclick="cerrarSesion()" class="side-link danger">🚪 Cerrar sesión</button>
+      </aside>
+
+      <main class="app-content" id="panelContenido"></main>
+    </div>
+  `;
+}
+
+function menuAdmin() {
+  return `
+    <div class="app-layout">
+      <aside class="side-menu admin-menu">
+        <div class="side-brand">
+          <div class="side-logo">🛡️</div>
+          <div>
+            <b>Administrador</b>
+            <small>Control Express Local</small>
+          </div>
+        </div>
+
+        <button onclick="renderAdminResumen()" class="side-link">📊 Resumen</button>
+        <button onclick="renderAdminBuscarPersonas('Usuario')" class="side-link">👤 Buscar usuarios</button>
+        <button onclick="renderAdminBuscarPersonas('Colaborador')" class="side-link">🛠️ Buscar colaboradores</button>
+        <button onclick="renderAdminSolicitudes24h()" class="side-link">🕒 Últimas 24 horas</button>
+        <button onclick="renderAdminHistorialFiltrado()" class="side-link">📋 Historial filtrado</button>
+        <button onclick="renderAdminAnuncios()" class="side-link">📢 Anuncios</button>
+        <button onclick="cerrarSesion()" class="side-link danger">🚪 Cerrar sesión</button>
+      </aside>
+
+      <main class="app-content" id="panelContenido"></main>
+    </div>
+  `;
+}
 function renderLogin() {
   vistaActual = "login";
 
@@ -163,7 +292,7 @@ function renderIngresoUsuario() {
   document.getElementById("app").innerHTML = `
     ${hero()}
 
-    <div class="card">
+    <div class="card auth-card">
       <h2>👤 Ingreso usuario</h2>
       <input id="loginUsuario" placeholder="Usuario">
       <input id="loginClave" type="password" placeholder="Clave">
@@ -180,7 +309,7 @@ function renderRegistroUsuario() {
   document.getElementById("app").innerHTML = `
     ${hero()}
 
-    <div class="card">
+    <div class="card auth-card">
       <h2>👤 Registro usuario</h2>
 
       <div class="form-grid">
@@ -205,7 +334,7 @@ function renderIngresoColaborador() {
   document.getElementById("app").innerHTML = `
     ${hero()}
 
-    <div class="card">
+    <div class="card auth-card">
       <h2>🛠️ Ingreso colaborador</h2>
       <input id="loginColUsuario" placeholder="Usuario">
       <input id="loginColClave" type="password" placeholder="Clave">
@@ -222,7 +351,7 @@ function renderRegistroColaborador() {
   document.getElementById("app").innerHTML = `
     ${hero()}
 
-    <div class="card">
+    <div class="card auth-card">
       <h2>🧰 Registro colaborador</h2>
 
       <div class="form-grid">
@@ -256,7 +385,7 @@ function renderIngresoAdmin() {
   document.getElementById("app").innerHTML = `
     ${hero()}
 
-    <div class="card">
+    <div class="card auth-card">
       <h2>🔐 Administrador</h2>
       <input id="adminUsuario" placeholder="Usuario administrador">
       <input id="adminClave" type="password" placeholder="Clave administrador">
@@ -300,7 +429,10 @@ async function loginAdmin() {
 
   if (!r.ok) return alert(r.mensaje);
 
-  guardarSesion("Administrador", { usuario: document.getElementById("adminUsuario").value });
+  guardarSesion("Administrador", {
+    usuario: document.getElementById("adminUsuario").value
+  });
+
   iniciarRefrescoAutomatico();
   renderPanelAdmin();
 }
@@ -345,10 +477,15 @@ async function registrarColaborador() {
 
 async function activarNotificaciones() {
   try {
-    if (!sesion.tipo || !sesion.persona) return alert("Debe iniciar sesión primero.");
+    if (!sesion.tipo || !sesion.persona) {
+      return alert("Debe iniciar sesión primero.");
+    }
 
     const permiso = await Notification.requestPermission();
-    if (permiso !== "granted") return alert("Permiso de notificaciones denegado.");
+
+    if (permiso !== "granted") {
+      return alert("Permiso de notificaciones denegado.");
+    }
 
     const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js");
     await navigator.serviceWorker.ready;
@@ -358,7 +495,9 @@ async function activarNotificaciones() {
       serviceWorkerRegistration: registration
     });
 
-    if (!token) return alert("No se pudo generar token de notificaciones.");
+    if (!token) {
+      return alert("No se pudo generar token de notificaciones.");
+    }
 
     const r = await api("guardarPushToken", {
       tipo: sesion.tipo,
@@ -366,7 +505,9 @@ async function activarNotificaciones() {
       token
     });
 
-    if (!r.ok) return alert("No se pudo guardar el token.");
+    if (!r.ok) {
+      return alert("No se pudo guardar el token.");
+    }
 
     sesion.persona["Push Token"] = token;
     guardarSesion(sesion.tipo, sesion.persona);
@@ -383,7 +524,6 @@ onMessage(messaging, (payload) => {
   const cuerpo = payload.notification?.body || "Nueva notificación";
   notificacionLocal(titulo, cuerpo);
 });
-
 function obtenerSolicitudActivaUsuario(solicitudes, usuarioId) {
   const activas = solicitudes.filter(s =>
     s["Cliente ID"] === usuarioId &&
@@ -396,9 +536,16 @@ function obtenerSolicitudActivaUsuario(solicitudes, usuarioId) {
 async function renderPanelUsuario(silencioso = false) {
   vistaActual = "panelUsuario";
 
+  if (!silencioso) {
+    document.getElementById("app").innerHTML = menuUsuario();
+  }
+
+  const contenedor = document.getElementById("panelContenido") || document.getElementById("app");
+
   const datos = await api("obtenerDatosIniciales");
   const usuario = sesion.persona;
   const solicitudes = datos.solicitudes || [];
+  const anuncios = datos.anuncios || [];
   const activa = obtenerSolicitudActivaUsuario(solicitudes, usuario.ID);
 
   if (silencioso && activa) {
@@ -408,7 +555,10 @@ async function renderPanelUsuario(silencioso = false) {
       idsUsuarioEstadosVistos.add(llave);
 
       if (activa.Estado === "Aceptado") {
-        notificacionLocal("✅ Solicitud aceptada", `${activa.Colaborador || "Un colaborador"} aceptó su solicitud ${activa.Servicio}.`);
+        notificacionLocal(
+          "✅ Solicitud aceptada",
+          `${activa.Colaborador || "Un colaborador"} aceptó su solicitud ${activa.Servicio}.`
+        );
       }
     }
   }
@@ -417,14 +567,25 @@ async function renderPanelUsuario(silencioso = false) {
     idsUsuarioEstadosVistos.add(`${activa.ID}-${activa.Estado}`);
   }
 
-  document.getElementById("app").innerHTML = `
+  contenedor.innerHTML = `
     <div class="topbar card">
       <div>
-        <h2>Hola, ${usuario.Nombre} 👋</h2>
+        <h2>Hola, ${escaparHTML(usuario.Nombre)} 👋</h2>
         <p>${activa ? "Servicio activo en seguimiento." : "Seleccione el servicio que necesita."}</p>
       </div>
       <button class="small-btn" onclick="cerrarSesion()">Salir</button>
     </div>
+
+    ${
+      anuncios.length
+        ? `<div class="card">
+             <h2>📢 Anuncios</h2>
+             <div class="ad-strip">
+               ${anuncios.slice(0, 3).map(renderAnuncio).join("")}
+             </div>
+           </div>`
+        : ""
+    }
 
     <div class="card">
       <h2>🔔 Notificaciones</h2>
@@ -433,6 +594,51 @@ async function renderPanelUsuario(silencioso = false) {
     </div>
 
     ${activa ? renderSolicitudActivaUsuario(activa) : renderSelectorServicios()}
+  `;
+}
+
+async function renderPanelUsuarioAnuncios() {
+  vistaActual = "panelUsuario";
+
+  document.getElementById("app").innerHTML = menuUsuario();
+
+  const contenedor = document.getElementById("panelContenido");
+  contenedor.innerHTML = `
+    <div class="card">
+      <h2>📢 Anuncios publicitarios</h2>
+      <p>Cargando anuncios...</p>
+    </div>
+  `;
+
+  const r = await api("listarAnuncios");
+  const anuncios = r.anuncios || [];
+
+  contenedor.innerHTML = `
+    <div class="topbar card">
+      <div>
+        <h2>📢 Anuncios publicitarios</h2>
+        <p>Promociones y avisos disponibles.</p>
+      </div>
+      <button class="small-btn" onclick="renderPanelUsuario()">Volver</button>
+    </div>
+
+    ${
+      anuncios.length === 0
+        ? `<div class="card"><p>No hay anuncios activos.</p></div>`
+        : `<div class="ad-grid">${anuncios.map(renderAnuncio).join("")}</div>`
+    }
+  `;
+}
+
+function renderAnuncio(a) {
+  return `
+    <div class="ad-card">
+      <img src="${escaparHTML(a.Imagen)}" alt="${escaparHTML(a.Titulo)}">
+      <div class="ad-body">
+        <h3>${escaparHTML(a.Titulo || "Anuncio")}</h3>
+        <p>${escaparHTML(a.Descripcion || "")}</p>
+      </div>
+    </div>
   `;
 }
 
@@ -452,13 +658,13 @@ function renderSelectorServicios() {
 
 function renderSolicitudActivaUsuario(s) {
   return `
-    <div class="card">
+    <div class="card request-card">
       <h2>📍 Solicitud activa</h2>
-      <h3>${s.Servicio} · #${s.ID}</h3>
+      <h3>${escaparHTML(s.Servicio)} · #${escaparHTML(s.ID)}</h3>
       <p><b>Fecha:</b> ${formatearFechaHora(s.Fecha)}</p>
       <p><b>Estado:</b> ${badge(s.Estado)}</p>
-      <p><b>Detalle:</b> ${s.Detalle}</p>
-      <p><b>Colaborador:</b> ${s.Colaborador || "Buscando colaborador disponible..."}</p>
+      <p><b>Detalle:</b> ${escaparHTML(s.Detalle)}</p>
+      <p><b>Colaborador:</b> ${escaparHTML(s.Colaborador || "Buscando colaborador disponible...")}</p>
 
       ${
         s.Estado === "Aceptado" && s["Teléfono colaborador"]
@@ -474,9 +680,13 @@ function renderSolicitudActivaUsuario(s) {
 function renderCrearSolicitud(servicio) {
   vistaActual = "crearSolicitud";
 
-  document.getElementById("app").innerHTML = `
+  document.getElementById("app").innerHTML = menuUsuario();
+
+  const contenedor = document.getElementById("panelContenido");
+
+  contenedor.innerHTML = `
     <div class="card">
-      <h2>Solicitar ${servicio}</h2>
+      <h2>Solicitar ${escaparHTML(servicio)}</h2>
       <textarea id="detalleSolicitud" placeholder="Detalle de la solicitud"></textarea>
       <button onclick="crearSolicitud('${servicio}')">Enviar solicitud</button>
       <button class="ghost-btn" onclick="renderPanelUsuario()">Volver</button>
@@ -488,7 +698,9 @@ async function crearSolicitud(servicio) {
   const usuario = sesion.persona;
   const detalle = document.getElementById("detalleSolicitud").value;
 
-  if (!detalle.trim()) return alert("Debe escribir el detalle de la solicitud.");
+  if (!detalle.trim()) {
+    return alert("Debe escribir el detalle de la solicitud.");
+  }
 
   const cliente = `${usuario.Nombre} ${usuario["Primer apellido"]} ${usuario["Segundo apellido"]}`;
 
@@ -500,7 +712,9 @@ async function crearSolicitud(servicio) {
     detalle
   });
 
-  if (!r.ok) return alert("No se pudo crear la solicitud.");
+  if (!r.ok) {
+    return alert("No se pudo crear la solicitud.");
+  }
 
   alert("Solicitud enviada correctamente.");
   vistaActual = "panelUsuario";
@@ -518,6 +732,12 @@ function obtenerTrabajoActivoColaborador(solicitudes, colaboradorId) {
 
 async function renderPanelColaborador(silencioso = false) {
   vistaActual = "panelColaborador";
+
+  if (!silencioso) {
+    document.getElementById("app").innerHTML = menuColaborador();
+  }
+
+  const contenedor = document.getElementById("panelContenido") || document.getElementById("app");
 
   const datos = await api("obtenerDatosIniciales");
   const c = sesion.persona;
@@ -540,10 +760,10 @@ async function renderPanelColaborador(silencioso = false) {
     pendientes.forEach(s => idsPendientesVistos.add(s.ID));
   }
 
-  document.getElementById("app").innerHTML = `
+  contenedor.innerHTML = `
     <div class="topbar card">
       <div>
-        <h2>${c.Servicio} · ${c.Nombre}</h2>
+        <h2>${escaparHTML(c.Servicio)} · ${escaparHTML(c.Nombre)}</h2>
         <p>Estado actual: ${badge(c.Estado)}</p>
       </div>
       <button class="small-btn" onclick="cerrarSesion()">Salir</button>
@@ -568,18 +788,18 @@ async function renderPanelColaborador(silencioso = false) {
     ${trabajoActivo ? renderTrabajoActivoColaborador(trabajoActivo) : renderPendientesColaborador(pendientes)}
   `;
 }
-
 function renderPendientesColaborador(pendientes) {
   return `
     <div class="card">
       <h2>🔔 Solicitudes disponibles</h2>
       ${pendientes.length === 0 ? "<p>No hay solicitudes disponibles en este momento.</p>" : ""}
+
       ${pendientes.slice().reverse().map(s => `
-        <div class="card">
-          <h3>${s.Servicio} · #${s.ID}</h3>
-          <p><b>Cliente:</b> ${s.Cliente}</p>
+        <div class="card request-card">
+          <h3>${escaparHTML(s.Servicio)} · #${escaparHTML(s.ID)}</h3>
+          <p><b>Cliente:</b> ${escaparHTML(s.Cliente)}</p>
           <p><b>Fecha:</b> ${formatearFechaHora(s.Fecha)}</p>
-          <p><b>Detalle:</b> ${s.Detalle}</p>
+          <p><b>Detalle:</b> ${escaparHTML(s.Detalle)}</p>
           <button onclick="aceptarSolicitud('${s.ID}')">✅ Aceptar solicitud</button>
         </div>
       `).join("")}
@@ -589,12 +809,12 @@ function renderPendientesColaborador(pendientes) {
 
 function renderTrabajoActivoColaborador(s) {
   return `
-    <div class="card">
+    <div class="card request-card">
       <h2>📌 Servicio activo</h2>
-      <h3>${s.Servicio} · #${s.ID}</h3>
-      <p><b>Cliente:</b> ${s.Cliente}</p>
+      <h3>${escaparHTML(s.Servicio)} · #${escaparHTML(s.ID)}</h3>
+      <p><b>Cliente:</b> ${escaparHTML(s.Cliente)}</p>
       <p><b>Estado:</b> ${badge(s.Estado)}</p>
-      <p><b>Detalle:</b> ${s.Detalle}</p>
+      <p><b>Detalle:</b> ${escaparHTML(s.Detalle)}</p>
 
       <a href="${whatsapp(s["Teléfono cliente"], "Hola, soy " + s.Colaborador + ". Acepté su solicitud #" + s.ID)}" target="_blank">
         <button>💬 Chatear con cliente</button>
@@ -614,7 +834,9 @@ async function cambiarEstadoColaborador() {
     estado
   });
 
-  if (!r.ok) return alert("No se pudo actualizar el estado.");
+  if (!r.ok) {
+    return alert("No se pudo actualizar el estado.");
+  }
 
   c.Estado = estado;
   guardarSesion("Colaborador", c);
@@ -632,97 +854,490 @@ async function aceptarSolicitud(id) {
     telefonoColaborador: c["Teléfono"]
   });
 
-  if (!r.ok) return alert(r.mensaje || "No se pudo aceptar.");
+  if (!r.ok) {
+    return alert(r.mensaje || "No se pudo aceptar.");
+  }
 
   alert("Solicitud aceptada.");
   renderPanelColaborador();
 }
 
 async function finalizarSolicitud(id) {
-  const r = await api("finalizarSolicitud", { solicitudId: id });
-  if (!r.ok) return alert("No se pudo finalizar.");
+  const r = await api("finalizarSolicitud", {
+    solicitudId: id
+  });
+
+  if (!r.ok) {
+    return alert("No se pudo finalizar.");
+  }
 
   alert("Solicitud finalizada.");
   renderPanelColaborador();
 }
 
-async function renderPanelAdmin(silencioso = false) {
+function renderPanelAdmin() {
   vistaActual = "panelAdmin";
+  adminVistaActual = "resumen";
 
-  const datos = await api("obtenerDatosIniciales");
-  const usuarios = datos.usuarios || [];
-  const colaboradores = datos.colaboradores || [];
-  const solicitudes = datos.solicitudes || [];
+  document.getElementById("app").innerHTML = menuAdmin();
+  renderAdminResumen();
+}
 
-  const pendientes = solicitudes.filter(s => s.Estado === "Pendiente");
-  const aceptadas = solicitudes.filter(s => s.Estado === "Aceptado");
-  const finalizadas = solicitudes.filter(s => s.Estado === "Finalizado");
+async function renderAdminResumen(silencioso = false) {
+  vistaActual = "panelAdmin";
+  adminVistaActual = "resumen";
 
-  document.getElementById("app").innerHTML = `
+  const contenedor = document.getElementById("panelContenido");
+
+  if (!silencioso) {
+    contenedor.innerHTML = `
+      <div class="card">
+        <h2>📊 Resumen administrativo</h2>
+        <p>Cargando datos...</p>
+      </div>
+    `;
+  }
+
+  const r = await api("resumenAdmin");
+
+  if (!r.ok) {
+    contenedor.innerHTML = `<div class="card"><p>${escaparHTML(r.mensaje || "No se pudo cargar el resumen.")}</p></div>`;
+    return;
+  }
+
+  const d = r.resumen || {};
+
+  contenedor.innerHTML = `
     <div class="topbar card">
       <div>
-        <h2>🛡️ Panel Administrador</h2>
-        <p>Control general de Express Local.</p>
+        <h2>📊 Resumen administrativo</h2>
+        <p>Vista rápida sin cargar todo el historial.</p>
       </div>
-      <button class="small-btn" onclick="cerrarSesion()">Salir</button>
+      <button class="small-btn" onclick="renderAdminResumen()">Actualizar</button>
     </div>
 
-    <div class="grid">
-      <div class="card"><h2>${usuarios.length}</h2><p>Usuarios</p></div>
-      <div class="card"><h2>${colaboradores.length}</h2><p>Colaboradores</p></div>
-      <div class="card"><h2>${solicitudes.length}</h2><p>Solicitudes totales</p></div>
-      <div class="card"><h2>${pendientes.length}</h2><p>Pendientes</p></div>
-      <div class="card"><h2>${aceptadas.length}</h2><p>Aceptadas</p></div>
-      <div class="card"><h2>${finalizadas.length}</h2><p>Finalizadas</p></div>
-    </div>
-
-    <div class="card">
-      <h2>📋 Historial de solicitudes</h2>
-      ${solicitudes.length === 0 ? "<p>No hay solicitudes registradas.</p>" : ""}
-      ${solicitudes.slice().reverse().map(s => `
-        <div class="card">
-          <h3>${s.Servicio} · #${s.ID}</h3>
-          <p><b>Fecha:</b> ${formatearFechaHora(s.Fecha)}</p>
-          <p><b>Cliente:</b> ${s.Cliente}</p>
-          <p><b>Teléfono cliente:</b> ${s["Teléfono cliente"]}</p>
-          <p><b>Detalle:</b> ${s.Detalle}</p>
-          <p><b>Estado:</b> ${badge(s.Estado)}</p>
-          <p><b>Colaborador:</b> ${s.Colaborador || "Sin asignar"}</p>
-          <p><b>Teléfono colaborador:</b> ${s["Teléfono colaborador"] || "Sin asignar"}</p>
-        </div>
-      `).join("")}
+    <div class="grid admin-stats">
+      <div class="card stat-card"><h2>${d.usuarios || 0}</h2><p>Usuarios</p></div>
+      <div class="card stat-card"><h2>${d.colaboradores || 0}</h2><p>Colaboradores</p></div>
+      <div class="card stat-card"><h2>${d.solicitudes || 0}</h2><p>Solicitudes totales</p></div>
+      <div class="card stat-card"><h2>${d.ultimas24h || 0}</h2><p>Últimas 24 horas</p></div>
+      <div class="card stat-card"><h2>${d.pendientes || 0}</h2><p>Pendientes</p></div>
+      <div class="card stat-card"><h2>${d.aceptadas || 0}</h2><p>Aceptadas</p></div>
+      <div class="card stat-card"><h2>${d.finalizadas || 0}</h2><p>Finalizadas</p></div>
     </div>
 
     <div class="card">
-      <h2>👤 Usuarios registrados</h2>
-      ${usuarios.length === 0 ? "<p>No hay usuarios registrados.</p>" : ""}
-      ${usuarios.map(u => `
-        <div class="card">
-          <h3>${u.Nombre} ${u["Primer apellido"]} ${u["Segundo apellido"]}</h3>
-          <p><b>Usuario:</b> ${u.Usuario}</p>
-          <p><b>Teléfono:</b> ${u["Teléfono"]}</p>
-          <p><b>Fecha:</b> ${formatearFechaHora(u.Fecha)}</p>
-          <p><b>Push Token:</b> ${u["Push Token"] ? "Sí" : "No"}</p>
-        </div>
-      `).join("")}
+      <h2>⚙️ Gestión rápida</h2>
+      <div class="quick-actions">
+        <button onclick="renderAdminBuscarPersonas('Usuario')">Buscar usuarios</button>
+        <button onclick="renderAdminBuscarPersonas('Colaborador')">Buscar colaboradores</button>
+        <button onclick="renderAdminSolicitudes24h()">Ver últimas 24 horas</button>
+        <button onclick="renderAdminHistorialFiltrado()">Historial filtrado</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderAdminBuscarPersonas(tipo) {
+  vistaActual = "panelAdmin";
+  adminVistaActual = tipo === "Usuario" ? "buscarUsuarios" : "buscarColaboradores";
+
+  const contenedor = document.getElementById("panelContenido");
+
+  contenedor.innerHTML = `
+    <div class="topbar card">
+      <div>
+        <h2>${tipo === "Usuario" ? "👤 Buscar usuarios" : "🛠️ Buscar colaboradores"}</h2>
+        <p>Busque por nombre, usuario o teléfono. No se carga toda la lista.</p>
+      </div>
+      <button class="small-btn" onclick="renderAdminResumen()">Resumen</button>
     </div>
 
     <div class="card">
-      <h2>🛠️ Colaboradores registrados</h2>
-      ${colaboradores.length === 0 ? "<p>No hay colaboradores registrados.</p>" : ""}
-      ${colaboradores.map(c => `
-        <div class="card">
-          <h3>${c.Nombre} ${c["Primer apellido"]} ${c["Segundo apellido"]}</h3>
-          <p><b>Usuario:</b> ${c.Usuario}</p>
-          <p><b>Servicio:</b> ${c.Servicio}</p>
-          <p><b>Estado:</b> ${badge(c.Estado)}</p>
-          <p><b>Teléfono:</b> ${c["Teléfono"]}</p>
-          <p><b>Fecha:</b> ${formatearFechaHora(c.Fecha)}</p>
-          <p><b>Push Token:</b> ${c["Push Token"] ? "Sí" : "No"}</p>
+      <div class="search-row">
+        <input id="adminBusquedaPersona" placeholder="Escriba nombre, usuario o teléfono">
+        <button onclick="buscarPersonasAdmin('${tipo}')">Buscar</button>
+      </div>
+      <p class="helper-text">Debe escribir al menos 2 letras.</p>
+    </div>
+
+    <div id="adminResultadosPersonas"></div>
+  `;
+}
+
+async function buscarPersonasAdmin(tipo) {
+  const busqueda = document.getElementById("adminBusquedaPersona").value;
+  const contenedor = document.getElementById("adminResultadosPersonas");
+
+  contenedor.innerHTML = `
+    <div class="card">
+      <p>Buscando...</p>
+    </div>
+  `;
+
+  const r = await api("buscarPersonasAdmin", {
+    tipo,
+    busqueda,
+    limite: 20
+  });
+
+  if (!r.ok) {
+    contenedor.innerHTML = `<div class="card"><p>${escaparHTML(r.mensaje)}</p></div>`;
+    return;
+  }
+
+  const personas = r.personas || [];
+
+  contenedor.innerHTML = `
+    <div class="card">
+      <h2>Resultados</h2>
+      ${personas.length === 0 ? "<p>No se encontraron registros.</p>" : ""}
+      ${personas.map(p => renderPersonaAdmin(tipo, p)).join("")}
+    </div>
+  `;
+}
+function renderPersonaAdmin(tipo, p) {
+  const esCol = tipo === "Colaborador";
+
+  return `
+    <div class="admin-item">
+      <h3>${escaparHTML(p.Nombre)} ${escaparHTML(p["Primer apellido"])} ${escaparHTML(p["Segundo apellido"])}</h3>
+
+      <div class="form-grid">
+        <input id="editNombre_${p.ID}" value="${escaparHTML(p.Nombre)}" placeholder="Nombre">
+        <input id="editApellido1_${p.ID}" value="${escaparHTML(p["Primer apellido"])}" placeholder="Primer apellido">
+        <input id="editApellido2_${p.ID}" value="${escaparHTML(p["Segundo apellido"])}" placeholder="Segundo apellido">
+        <input id="editTelefono_${p.ID}" value="${escaparHTML(p["Teléfono"])}" placeholder="Teléfono">
+        <input id="editUsuario_${p.ID}" value="${escaparHTML(p.Usuario)}" placeholder="Usuario">
+        <input id="editClave_${p.ID}" value="${escaparHTML(p.Clave)}" placeholder="Clave">
+
+        ${
+          esCol
+            ? `
+              <select id="editServicio_${p.ID}">
+                <option ${p.Servicio === "Taxi" ? "selected" : ""}>Taxi</option>
+                <option ${p.Servicio === "Express" ? "selected" : ""}>Express</option>
+                <option ${p.Servicio === "Carga" ? "selected" : ""}>Carga</option>
+                <option ${p.Servicio === "Camión" ? "selected" : ""}>Camión</option>
+              </select>
+
+              <select id="editEstado_${p.ID}">
+                <option ${p.Estado === "Disponible" ? "selected" : ""}>Disponible</option>
+                <option ${p.Estado === "Ocupado" ? "selected" : ""}>Ocupado</option>
+                <option ${p.Estado === "Fuera de servicio" ? "selected" : ""}>Fuera de servicio</option>
+              </select>
+            `
+            : ""
+        }
+      </div>
+
+      <p><b>ID:</b> ${escaparHTML(p.ID)}</p>
+      <p><b>Fecha:</b> ${formatearFechaHora(p.Fecha)}</p>
+      <p><b>Push Token:</b> ${p["Push Token"] ? "Sí" : "No"}</p>
+
+      <div class="admin-actions">
+        <button onclick="editarPersonaAdmin('${tipo}', '${p.ID}')">Guardar cambios</button>
+        <button class="danger-btn" onclick="eliminarPersonaAdmin('${tipo}', '${p.ID}')">Eliminar</button>
+        <button class="ghost-btn" onclick="buscarHistorialPersona('${tipo}', '${p.ID}', '${escaparHTML(p.Nombre)}')">Ver historial</button>
+      </div>
+    </div>
+  `;
+}
+
+async function editarPersonaAdmin(tipo, id) {
+  const datos = {
+    tipo,
+    id,
+    nombre: document.getElementById(`editNombre_${id}`).value,
+    apellido1: document.getElementById(`editApellido1_${id}`).value,
+    apellido2: document.getElementById(`editApellido2_${id}`).value,
+    telefono: document.getElementById(`editTelefono_${id}`).value,
+    usuario: document.getElementById(`editUsuario_${id}`).value,
+    clave: document.getElementById(`editClave_${id}`).value
+  };
+
+  if (tipo === "Colaborador") {
+    datos.servicio = document.getElementById(`editServicio_${id}`).value;
+    datos.estado = document.getElementById(`editEstado_${id}`).value;
+  }
+
+  const r = await api("editarPersonaAdmin", datos);
+
+  if (!r.ok) return alert(r.mensaje || "No se pudo actualizar.");
+
+  alert("Registro actualizado correctamente.");
+  buscarPersonasAdmin(tipo);
+}
+
+async function eliminarPersonaAdmin(tipo, id) {
+  const confirmar = confirm("¿Seguro que desea eliminar este registro?");
+  if (!confirmar) return;
+
+  const r = await api("eliminarPersonaAdmin", { tipo, id });
+
+  if (!r.ok) return alert(r.mensaje || "No se pudo eliminar.");
+
+  alert("Registro eliminado correctamente.");
+  buscarPersonasAdmin(tipo);
+}
+
+async function buscarHistorialPersona(tipo, id, nombre) {
+  const contenedor = document.getElementById("adminResultadosPersonas");
+
+  contenedor.innerHTML = `
+    <div class="card">
+      <h2>📋 Historial de ${escaparHTML(nombre)}</h2>
+      <p>Cargando historial...</p>
+    </div>
+  `;
+
+  const datos = tipo === "Usuario"
+    ? { clienteId: id, limite: 50 }
+    : { colaboradorId: id, limite: 50 };
+
+  const r = await api("buscarSolicitudesAdmin", datos);
+
+  if (!r.ok) {
+    contenedor.innerHTML = `<div class="card"><p>${escaparHTML(r.mensaje)}</p></div>`;
+    return;
+  }
+
+  contenedor.innerHTML = `
+    <div class="card">
+      <h2>📋 Historial de ${escaparHTML(nombre)}</h2>
+      <button class="ghost-btn" onclick="renderAdminBuscarPersonas('${tipo}')">Volver a búsqueda</button>
+      ${renderListaSolicitudes(r.solicitudes || [])}
+    </div>
+  `;
+}
+
+async function renderAdminSolicitudes24h(silencioso = false) {
+  vistaActual = "panelAdmin";
+  adminVistaActual = "solicitudes24h";
+
+  const contenedor = document.getElementById("panelContenido");
+
+  if (!silencioso) {
+    contenedor.innerHTML = `
+      <div class="card">
+        <h2>🕒 Solicitudes últimas 24 horas</h2>
+        <p>Cargando...</p>
+      </div>
+    `;
+  }
+
+  const r = await api("buscarSolicitudesAdmin", {
+    modo: "24h",
+    limite: 80
+  });
+
+  if (!r.ok) {
+    contenedor.innerHTML = `<div class="card"><p>${escaparHTML(r.mensaje)}</p></div>`;
+    return;
+  }
+
+  contenedor.innerHTML = `
+    <div class="topbar card">
+      <div>
+        <h2>🕒 Solicitudes últimas 24 horas</h2>
+        <p>Solo se cargan pedidos recientes para evitar saturar la página.</p>
+      </div>
+      <button class="small-btn" onclick="renderAdminSolicitudes24h()">Actualizar</button>
+    </div>
+
+    ${renderListaSolicitudes(r.solicitudes || [])}
+  `;
+}
+
+function renderAdminHistorialFiltrado() {
+  vistaActual = "panelAdmin";
+  adminVistaActual = "historialFiltrado";
+
+  const hoy = fechaInputHoy();
+  const contenedor = document.getElementById("panelContenido");
+
+  contenedor.innerHTML = `
+    <div class="topbar card">
+      <div>
+        <h2>📋 Historial filtrado</h2>
+        <p>Busque por fechas, cliente, colaborador, servicio o estado.</p>
+      </div>
+      <button class="small-btn" onclick="renderAdminResumen()">Resumen</button>
+    </div>
+
+    <div class="card">
+      <div class="form-grid">
+        <input id="histFechaInicio" type="date" value="${hoy}">
+        <input id="histFechaFin" type="date" value="${hoy}">
+
+        <select id="histServicio">
+          <option value="">Todos los servicios</option>
+          <option>Taxi</option>
+          <option>Express</option>
+          <option>Carga</option>
+          <option>Camión</option>
+        </select>
+
+        <select id="histEstado">
+          <option value="">Todos los estados</option>
+          <option>Pendiente</option>
+          <option>Aceptado</option>
+          <option>Finalizado</option>
+        </select>
+
+        <input id="histCliente" placeholder="Buscar cliente o teléfono">
+        <input id="histColaborador" placeholder="Buscar colaborador o teléfono">
+      </div>
+
+      <button onclick="buscarHistorialFiltrado()">Buscar historial</button>
+    </div>
+
+    <div id="adminHistorialResultado"></div>
+  `;
+}
+
+async function buscarHistorialFiltrado() {
+  const contenedor = document.getElementById("adminHistorialResultado");
+
+  contenedor.innerHTML = `
+    <div class="card">
+      <p>Buscando solicitudes...</p>
+    </div>
+  `;
+
+  const r = await api("buscarSolicitudesAdmin", {
+    fechaInicio: document.getElementById("histFechaInicio").value,
+    fechaFin: document.getElementById("histFechaFin").value,
+    servicio: document.getElementById("histServicio").value,
+    estado: document.getElementById("histEstado").value,
+    cliente: document.getElementById("histCliente").value,
+    colaborador: document.getElementById("histColaborador").value,
+    limite: 80
+  });
+
+  if (!r.ok) {
+    contenedor.innerHTML = `<div class="card"><p>${escaparHTML(r.mensaje)}</p></div>`;
+    return;
+  }
+
+  contenedor.innerHTML = renderListaSolicitudes(r.solicitudes || []);
+}
+
+function renderListaSolicitudes(solicitudes) {
+  if (!solicitudes.length) {
+    return `<div class="card"><p>No hay solicitudes para mostrar.</p></div>`;
+  }
+
+  return `
+    <div class="card">
+      <h2>Resultados: ${solicitudes.length}</h2>
+
+      ${solicitudes.map(s => `
+        <div class="admin-request">
+          <div>
+            <h3>${escaparHTML(s.Servicio)} · #${escaparHTML(s.ID)}</h3>
+            <p><b>Fecha:</b> ${formatearFechaHora(s.Fecha)}</p>
+            <p><b>Estado:</b> ${badge(s.Estado)}</p>
+            <p><b>Cliente:</b> ${escaparHTML(s.Cliente)}</p>
+            <p><b>Teléfono cliente:</b> ${escaparHTML(s["Teléfono cliente"])}</p>
+            <p><b>Detalle:</b> ${escaparHTML(s.Detalle)}</p>
+            <p><b>Colaborador:</b> ${escaparHTML(s.Colaborador || "Sin asignar")}</p>
+            <p><b>Teléfono colaborador:</b> ${escaparHTML(s["Teléfono colaborador"] || "Sin asignar")}</p>
+          </div>
         </div>
       `).join("")}
     </div>
   `;
+}
+
+async function renderAdminAnuncios() {
+  vistaActual = "panelAdmin";
+  adminVistaActual = "anuncios";
+
+  const contenedor = document.getElementById("panelContenido");
+
+  contenedor.innerHTML = `
+    <div class="topbar card">
+      <div>
+        <h2>📢 Anuncios publicitarios</h2>
+        <p>Agregue imágenes de anuncios para mostrar en la página de usuarios.</p>
+      </div>
+      <button class="small-btn" onclick="renderAdminResumen()">Resumen</button>
+    </div>
+
+    <div class="card">
+      <h2>Nuevo anuncio</h2>
+      <input id="anuncioTitulo" placeholder="Título del anuncio">
+      <input id="anuncioImagen" placeholder="URL de imagen del anuncio">
+      <textarea id="anuncioDescripcion" placeholder="Descripción breve"></textarea>
+      <button onclick="guardarAnuncioAdmin()">Guardar anuncio</button>
+    </div>
+
+    <div id="adminListaAnuncios">
+      <div class="card"><p>Cargando anuncios...</p></div>
+    </div>
+  `;
+
+  await cargarAnunciosAdmin();
+}
+
+async function guardarAnuncioAdmin() {
+  const r = await api("guardarAnuncioAdmin", {
+    titulo: document.getElementById("anuncioTitulo").value,
+    imagen: document.getElementById("anuncioImagen").value,
+    descripcion: document.getElementById("anuncioDescripcion").value
+  });
+
+  if (!r.ok) return alert(r.mensaje || "No se pudo guardar.");
+
+  alert("Anuncio guardado correctamente.");
+
+  document.getElementById("anuncioTitulo").value = "";
+  document.getElementById("anuncioImagen").value = "";
+  document.getElementById("anuncioDescripcion").value = "";
+
+  cargarAnunciosAdmin();
+}
+
+async function cargarAnunciosAdmin() {
+  const contenedor = document.getElementById("adminListaAnuncios");
+  const r = await api("listarAnuncios");
+
+  const anuncios = r.anuncios || [];
+
+  contenedor.innerHTML = `
+    <div class="card">
+      <h2>Anuncios activos</h2>
+      ${
+        anuncios.length === 0
+          ? "<p>No hay anuncios activos.</p>"
+          : `<div class="ad-grid">
+              ${anuncios.map(a => `
+                <div class="ad-card">
+                  <img src="${escaparHTML(a.Imagen)}" alt="${escaparHTML(a.Titulo)}">
+                  <div class="ad-body">
+                    <h3>${escaparHTML(a.Titulo)}</h3>
+                    <p>${escaparHTML(a.Descripcion)}</p>
+                    <button class="danger-btn" onclick="eliminarAnuncioAdmin('${a.ID}')">Eliminar anuncio</button>
+                  </div>
+                </div>
+              `).join("")}
+            </div>`
+      }
+    </div>
+  `;
+}
+
+async function eliminarAnuncioAdmin(id) {
+  const confirmar = confirm("¿Eliminar este anuncio?");
+  if (!confirmar) return;
+
+  const r = await api("eliminarAnuncioAdmin", { id });
+
+  if (!r.ok) return alert(r.mensaje || "No se pudo eliminar.");
+
+  alert("Anuncio eliminado.");
+  cargarAnunciosAdmin();
 }
 
 window.loginUsuario = loginUsuario;
@@ -730,14 +1345,18 @@ window.loginColaborador = loginColaborador;
 window.loginAdmin = loginAdmin;
 window.registrarUsuario = registrarUsuario;
 window.registrarColaborador = registrarColaborador;
+
 window.renderPanelUsuario = renderPanelUsuario;
+window.renderPanelUsuarioAnuncios = renderPanelUsuarioAnuncios;
 window.renderPanelColaborador = renderPanelColaborador;
 window.renderPanelAdmin = renderPanelAdmin;
+
 window.renderCrearSolicitud = renderCrearSolicitud;
 window.crearSolicitud = crearSolicitud;
 window.cambiarEstadoColaborador = cambiarEstadoColaborador;
 window.aceptarSolicitud = aceptarSolicitud;
 window.finalizarSolicitud = finalizarSolicitud;
+
 window.cerrarSesion = cerrarSesion;
 window.activarNotificaciones = activarNotificaciones;
 
@@ -747,6 +1366,19 @@ window.renderIngresoColaborador = renderIngresoColaborador;
 window.renderRegistroColaborador = renderRegistroColaborador;
 window.renderIngresoAdmin = renderIngresoAdmin;
 window.renderLogin = renderLogin;
+
+window.renderAdminResumen = renderAdminResumen;
+window.renderAdminBuscarPersonas = renderAdminBuscarPersonas;
+window.buscarPersonasAdmin = buscarPersonasAdmin;
+window.editarPersonaAdmin = editarPersonaAdmin;
+window.eliminarPersonaAdmin = eliminarPersonaAdmin;
+window.buscarHistorialPersona = buscarHistorialPersona;
+window.renderAdminSolicitudes24h = renderAdminSolicitudes24h;
+window.renderAdminHistorialFiltrado = renderAdminHistorialFiltrado;
+window.buscarHistorialFiltrado = buscarHistorialFiltrado;
+window.renderAdminAnuncios = renderAdminAnuncios;
+window.guardarAnuncioAdmin = guardarAnuncioAdmin;
+window.eliminarAnuncioAdmin = eliminarAnuncioAdmin;
 
 document.addEventListener("DOMContentLoaded", () => {
   cargarSesion();

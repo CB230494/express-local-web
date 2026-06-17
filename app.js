@@ -22,6 +22,41 @@ let vistaActual = "login";
 let idsPendientesVistos = new Set();
 let idsUsuarioEstadosVistos = new Set();
 let adminVistaActual = "resumen";
+let eventoInstalacionPWA = null;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  eventoInstalacionPWA = e;
+  mostrarBotonInstalarPWA();
+});
+
+function mostrarBotonInstalarPWA() {
+  if (document.getElementById("btnInstalarPWA")) return;
+
+  const boton = document.createElement("button");
+  boton.id = "btnInstalarPWA";
+  boton.className = "install-pwa-btn";
+  boton.innerHTML = "📲 Instalar App";
+
+  boton.onclick = async () => {
+    if (!eventoInstalacionPWA) return;
+
+    eventoInstalacionPWA.prompt();
+    await eventoInstalacionPWA.userChoice;
+
+    eventoInstalacionPWA = null;
+    boton.remove();
+  };
+
+  document.body.appendChild(boton);
+}
+
+window.addEventListener("appinstalled", () => {
+  eventoInstalacionPWA = null;
+
+  const boton = document.getElementById("btnInstalarPWA");
+  if (boton) boton.remove();
+});
 
 const SERVICIOS_UI = {
   Taxi: {

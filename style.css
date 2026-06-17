@@ -572,3 +572,24 @@ textarea {
     bottom: 14px;
   }
 }
+.install-pwa-btn {
+  position: fixed;
+  left: 22px;
+  bottom: 22px;
+  width: auto;
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.16);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+  z-index: 100;
+}
+
+@media (max-width: 850px) {
+  .install-pwa-btn {
+    left: 14px;
+    bottom: 14px;
+  }
+}

@@ -93,7 +93,7 @@ function iniciarRefrescoAutomatico() {
       if (adminVistaActual === "resumen") renderAdminResumen(true);
       if (adminVistaActual === "solicitudes24h") renderAdminSolicitudes24h(true);
     }
-  }, 5000);
+  }, 6000);
 }
 
 function detenerRefrescoAutomatico() {
@@ -110,7 +110,6 @@ function cerrarSesion() {
   adminVistaActual = "resumen";
   renderLogin();
 }
-
 function escaparHTML(texto) {
   return String(texto || "")
     .replaceAll("&", "&amp;")
@@ -166,8 +165,8 @@ function fechaInputHoy() {
 
 function cargando(texto = "Cargando información...") {
   return `
-    <div class="card">
-      <p>${texto}</p>
+    <div class="card loading-card">
+      <p>${escaparHTML(texto)}</p>
     </div>
   `;
 }
@@ -212,6 +211,7 @@ function leerImagenComoBase64(input) {
     lector.readAsDataURL(archivo);
   });
 }
+
 function hero() {
   return `
     <div class="card hero-card">
@@ -223,7 +223,7 @@ function hero() {
   `;
 }
 
-function menuUsuario() {
+function menuUsuario(contenido = "") {
   return `
     <div class="app-layout">
       <aside class="side-menu">
@@ -242,13 +242,13 @@ function menuUsuario() {
       </aside>
 
       <main class="app-content" id="panelContenido">
-        ${cargando()}
+        ${contenido || cargando()}
       </main>
     </div>
   `;
 }
 
-function menuColaborador() {
+function menuColaborador(contenido = "") {
   return `
     <div class="app-layout">
       <aside class="side-menu">
@@ -266,13 +266,13 @@ function menuColaborador() {
       </aside>
 
       <main class="app-content" id="panelContenido">
-        ${cargando()}
+        ${contenido || cargando()}
       </main>
     </div>
   `;
 }
 
-function menuAdmin() {
+function menuAdmin(contenido = "") {
   return `
     <div class="app-layout">
       <aside class="side-menu admin-menu">
@@ -294,12 +294,11 @@ function menuAdmin() {
       </aside>
 
       <main class="app-content" id="panelContenido">
-        ${cargando()}
+        ${contenido || cargando()}
       </main>
     </div>
   `;
 }
-
 function renderLogin() {
   vistaActual = "login";
 
@@ -436,6 +435,7 @@ function renderIngresoAdmin() {
     </div>
   `;
 }
+
 async function loginUsuario() {
   const r = await api("loginUsuario", {
     usuario: document.getElementById("loginUsuario").value,
@@ -477,7 +477,6 @@ async function loginAdmin() {
   iniciarRefrescoAutomatico();
   renderPanelAdmin();
 }
-
 async function registrarUsuario() {
   const r = await api("registrarUsuario", {
     nombre: document.getElementById("regNombre").value,
@@ -566,34 +565,33 @@ onMessage(messaging, (payload) => {
   notificacionLocal(titulo, cuerpo);
 });
 
-function obtenerSolicitudActivaUsuario(solicitudes, usuarioId) {
-  const activas = solicitudes.filter(s =>
-    s["Cliente ID"] === usuarioId &&
-    s.Estado !== "Finalizado"
-  );
-
-  return activas.length ? activas[activas.length - 1] : null;
-}
-
 async function renderPanelUsuario(silencioso = false) {
   vistaActual = "panelUsuario";
 
+  if (!sesion.persona || !sesion.persona.ID) {
+    cerrarSesion();
+    return;
+  }
+
   if (!silencioso) {
-    document.getElementById("app").innerHTML = menuUsuario();
+    document.getElementById("app").innerHTML = menuUsuario(cargando("Cargando panel de usuario..."));
   }
 
   const contenedor = document.getElementById("panelContenido") || document.getElementById("app");
 
-  if (!silencioso) {
-    contenedor.innerHTML = cargando("Cargando panel de usuario...");
+  const datos = await api("obtenerPanelUsuario", {
+    usuarioId: sesion.persona.ID
+  });
+
+  if (!datos.ok) {
+    contenedor.innerHTML = `<div class="card"><p>${escaparHTML(datos.mensaje || "No se pudo cargar el panel.")}</p></div>`;
+    return;
   }
 
-  const datos = await api("obtenerDatosIniciales");
   const usuario = sesion.persona;
-  const solicitudes = datos.solicitudes || [];
+  const activa = datos.solicitudActiva;
   const anuncios = datos.anuncios || [];
   const disponibles = datos.disponibles || {};
-  const activa = obtenerSolicitudActivaUsuario(solicitudes, usuario.ID);
 
   if (silencioso && activa) {
     const llave = `${activa.ID}-${activa.Estado}`;
@@ -614,7 +612,7 @@ async function renderPanelUsuario(silencioso = false) {
     idsUsuarioEstadosVistos.add(`${activa.ID}-${activa.Estado}`);
   }
 
-  contenedor.innerHTML = `
+  const contenido = `
     <div class="topbar card">
       <div>
         <h2>Hola, ${escaparHTML(usuario.Nombre)} 👋</h2>
@@ -644,6 +642,12 @@ async function renderPanelUsuario(silencioso = false) {
 
     ${activa ? renderSolicitudActivaUsuario(activa) : renderSelectorServicios(disponibles)}
   `;
+
+  if (silencioso) {
+    contenedor.innerHTML = contenido;
+  } else {
+    document.getElementById("app").innerHTML = menuUsuario(contenido);
+  }
 }
 
 function renderDisponiblesUsuario(disponibles = {}) {
@@ -665,19 +669,16 @@ function renderDisponiblesUsuario(disponibles = {}) {
     </div>
   `;
 }
-
 async function renderPanelUsuarioAnuncios() {
   vistaActual = "panelUsuario";
 
-  document.getElementById("app").innerHTML = menuUsuario();
+  document.getElementById("app").innerHTML = menuUsuario(cargando("Cargando anuncios..."));
 
   const contenedor = document.getElementById("panelContenido");
-  contenedor.innerHTML = cargando("Cargando anuncios...");
-
   const r = await api("listarAnuncios");
   const anuncios = r.anuncios || [];
 
-  contenedor.innerHTML = `
+  const contenido = `
     <div class="topbar card">
       <div>
         <h2>📢 Anuncios publicitarios</h2>
@@ -692,7 +693,10 @@ async function renderPanelUsuarioAnuncios() {
         : `<div class="ad-grid">${anuncios.map(renderAnuncio).join("")}</div>`
     }
   `;
+
+  contenedor.innerHTML = contenido;
 }
+
 function renderAnuncio(a) {
   return `
     <div class="ad-card">
@@ -744,11 +748,7 @@ function renderSolicitudActivaUsuario(s) {
 function renderCrearSolicitud(servicio) {
   vistaActual = "crearSolicitud";
 
-  document.getElementById("app").innerHTML = menuUsuario();
-
-  const contenedor = document.getElementById("panelContenido");
-
-  contenedor.innerHTML = `
+  const contenido = `
     <div class="card">
       <h2>Solicitar ${escaparHTML(servicio)}</h2>
       <textarea id="detalleSolicitud" placeholder="Detalle de la solicitud"></textarea>
@@ -756,6 +756,8 @@ function renderCrearSolicitud(servicio) {
       <button class="ghost-btn" onclick="renderPanelUsuario()">Volver</button>
     </div>
   `;
+
+  document.getElementById("app").innerHTML = menuUsuario(contenido);
 }
 
 async function crearSolicitud(servicio) {
@@ -785,44 +787,35 @@ async function crearSolicitud(servicio) {
   renderPanelUsuario();
 }
 
-function obtenerTrabajoActivoColaborador(solicitudes, colaboradorId) {
-  const activas = solicitudes.filter(s =>
-    s["Colaborador ID"] === colaboradorId &&
-    s.Estado !== "Finalizado"
-  );
-
-  return activas.length ? activas[activas.length - 1] : null;
-}
-
 async function renderPanelColaborador(silencioso = false) {
   vistaActual = "panelColaborador";
 
+  if (!sesion.persona || !sesion.persona.ID) {
+    cerrarSesion();
+    return;
+  }
+
   if (!silencioso) {
-    document.getElementById("app").innerHTML = menuColaborador();
+    document.getElementById("app").innerHTML = menuColaborador(cargando("Cargando panel de colaborador..."));
   }
 
   const contenedor = document.getElementById("panelContenido") || document.getElementById("app");
 
-  if (!silencioso) {
-    contenedor.innerHTML = cargando("Cargando panel de colaborador...");
+  const datos = await api("obtenerPanelColaborador", {
+    colaboradorId: sesion.persona.ID
+  });
+
+  if (!datos.ok) {
+    contenedor.innerHTML = `<div class="card"><p>${escaparHTML(datos.mensaje || "No se pudo cargar el panel.")}</p></div>`;
+    return;
   }
 
-  const datos = await api("obtenerDatosIniciales");
-  const c = sesion.persona;
-  const solicitudes = datos.solicitudes || [];
+  const colaborador = datos.colaborador;
+  const trabajoActivo = datos.trabajoActivo;
+  const pendientes = datos.pendientes || [];
 
-  const colaboradorActualizado = (datos.colaboradores || []).find(x => x.ID === c.ID);
-  if (colaboradorActualizado) {
-    sesion.persona = colaboradorActualizado;
-    guardarSesion("Colaborador", colaboradorActualizado);
-  }
-
-  const colaborador = sesion.persona;
-  const trabajoActivo = obtenerTrabajoActivoColaborador(solicitudes, colaborador.ID);
-
-  const pendientes = trabajoActivo
-    ? []
-    : solicitudes.filter(s => s.Servicio === colaborador.Servicio && s.Estado === "Pendiente");
+  sesion.persona = colaborador;
+  guardarSesion("Colaborador", colaborador);
 
   if (silencioso) {
     pendientes.forEach(s => {
@@ -835,7 +828,7 @@ async function renderPanelColaborador(silencioso = false) {
     pendientes.forEach(s => idsPendientesVistos.add(s.ID));
   }
 
-  contenedor.innerHTML = `
+  const contenido = `
     <div class="topbar card">
       <div>
         <h2>${escaparHTML(colaborador.Servicio)} · ${escaparHTML(colaborador.Nombre)}</h2>
@@ -863,6 +856,12 @@ async function renderPanelColaborador(silencioso = false) {
 
     ${trabajoActivo ? renderTrabajoActivoColaborador(trabajoActivo) : renderPendientesColaborador(pendientes)}
   `;
+
+  if (silencioso) {
+    contenedor.innerHTML = contenido;
+  } else {
+    document.getElementById("app").innerHTML = menuColaborador(contenido);
+  }
 }
 function renderPendientesColaborador(pendientes) {
   return `
@@ -870,7 +869,7 @@ function renderPendientesColaborador(pendientes) {
       <h2>🔔 Solicitudes disponibles</h2>
       ${pendientes.length === 0 ? "<p>No hay solicitudes disponibles en este momento.</p>" : ""}
 
-      ${pendientes.slice().reverse().map(s => `
+      ${pendientes.map(s => `
         <div class="card request-card">
           <h3>${escaparHTML(s.Servicio)} · #${escaparHTML(s.ID)}</h3>
           <p><b>Cliente:</b> ${escaparHTML(s.Cliente)}</p>
@@ -961,7 +960,7 @@ function renderPanelAdmin() {
   vistaActual = "panelAdmin";
   adminVistaActual = "resumen";
 
-  document.getElementById("app").innerHTML = menuAdmin();
+  document.getElementById("app").innerHTML = menuAdmin(cargando("Cargando resumen administrativo..."));
   renderAdminResumen();
 }
 
@@ -969,12 +968,11 @@ async function renderAdminResumen(silencioso = false) {
   vistaActual = "panelAdmin";
   adminVistaActual = "resumen";
 
-  const contenedor = document.getElementById("panelContenido");
-
   if (!silencioso) {
-    contenedor.innerHTML = cargando("Cargando resumen administrativo...");
+    document.getElementById("app").innerHTML = menuAdmin(cargando("Cargando resumen administrativo..."));
   }
 
+  const contenedor = document.getElementById("panelContenido") || document.getElementById("app");
   const r = await api("resumenAdmin");
 
   if (!r.ok) {
@@ -985,7 +983,7 @@ async function renderAdminResumen(silencioso = false) {
   const d = r.resumen || {};
   const disponibles = d.disponibles || {};
 
-  contenedor.innerHTML = `
+  const contenido = `
     <div class="topbar card">
       <div>
         <h2>📊 Resumen administrativo</h2>
@@ -1028,14 +1026,14 @@ async function renderAdminResumen(silencioso = false) {
       </div>
     </div>
   `;
+
+  contenedor.innerHTML = contenido;
 }
 function renderAdminBuscarPersonas(tipo) {
   vistaActual = "panelAdmin";
   adminVistaActual = tipo === "Usuario" ? "buscarUsuarios" : "buscarColaboradores";
 
-  const contenedor = document.getElementById("panelContenido");
-
-  contenedor.innerHTML = `
+  const contenido = `
     <div class="topbar card">
       <div>
         <h2>${tipo === "Usuario" ? "👤 Buscar usuarios" : "🛠️ Buscar colaboradores"}</h2>
@@ -1054,6 +1052,8 @@ function renderAdminBuscarPersonas(tipo) {
 
     <div id="adminResultadosPersonas"></div>
   `;
+
+  document.getElementById("app").innerHTML = menuAdmin(contenido);
 }
 
 async function buscarPersonasAdmin(tipo) {
@@ -1197,11 +1197,11 @@ async function renderAdminSolicitudes24h(silencioso = false) {
   vistaActual = "panelAdmin";
   adminVistaActual = "solicitudes24h";
 
-  const contenedor = document.getElementById("panelContenido");
-
   if (!silencioso) {
-    contenedor.innerHTML = cargando("Cargando solicitudes de las últimas 24 horas...");
+    document.getElementById("app").innerHTML = menuAdmin(cargando("Cargando solicitudes de las últimas 24 horas..."));
   }
+
+  const contenedor = document.getElementById("panelContenido") || document.getElementById("app");
 
   const r = await api("buscarSolicitudesAdmin", {
     modo: "24h",
@@ -1213,7 +1213,7 @@ async function renderAdminSolicitudes24h(silencioso = false) {
     return;
   }
 
-  contenedor.innerHTML = `
+  const contenido = `
     <div class="topbar card">
       <div>
         <h2>🕒 Solicitudes últimas 24 horas</h2>
@@ -1224,6 +1224,8 @@ async function renderAdminSolicitudes24h(silencioso = false) {
 
     ${renderListaSolicitudes(r.solicitudes || [])}
   `;
+
+  contenedor.innerHTML = contenido;
 }
 
 function renderAdminHistorialFiltrado() {
@@ -1231,9 +1233,8 @@ function renderAdminHistorialFiltrado() {
   adminVistaActual = "historialFiltrado";
 
   const hoy = fechaInputHoy();
-  const contenedor = document.getElementById("panelContenido");
 
-  contenedor.innerHTML = `
+  const contenido = `
     <div class="topbar card">
       <div>
         <h2>📋 Historial filtrado</h2>
@@ -1271,6 +1272,8 @@ function renderAdminHistorialFiltrado() {
 
     <div id="adminHistorialResultado"></div>
   `;
+
+  document.getElementById("app").innerHTML = menuAdmin(contenido);
 }
 
 async function buscarHistorialFiltrado() {
@@ -1326,9 +1329,7 @@ async function renderAdminAnuncios() {
   vistaActual = "panelAdmin";
   adminVistaActual = "anuncios";
 
-  const contenedor = document.getElementById("panelContenido");
-
-  contenedor.innerHTML = `
+  const contenido = `
     <div class="topbar card">
       <div>
         <h2>📢 Anuncios publicitarios</h2>
@@ -1350,6 +1351,7 @@ async function renderAdminAnuncios() {
     </div>
   `;
 
+  document.getElementById("app").innerHTML = menuAdmin(contenido);
   await cargarAnunciosAdmin();
 }
 
